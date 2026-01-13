@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import { getValidTenantUUID, isValidUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
+import { generateId } from '../utils/uuid';
 
 export const useVehicles = () => {
     return useQuery({
@@ -60,7 +61,7 @@ export const useAddVehicle = () => {
             if (id && id.trim() && isValidUUID(id)) {
                 payload.id = id;
             } else {
-                payload.id = crypto.randomUUID();
+                payload.id = generateId();
             }
 
             payload.tenant_id = tenantUUID;

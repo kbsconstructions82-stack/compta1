@@ -96,7 +96,7 @@ export const generateMonthlyInvoicePDF = async (data: MonthlyInvoiceData) => {
         const tableData = data.items.map(item => {
             const dateStr = item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('fr-FR') : '-';
             const trajetStr = item.trajet || '';
-            const prefP = item.pref_p || '-';
+            const prefP = 'ABLL';
             const devise = item.devise || 'TND';
             const htStr = item.ht.toFixed(3);
             const ttcStr = item.ttc.toFixed(3);

@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home } from 'lucide-react';
 import { Tenant } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useSwipe } from '../src/hooks/useTouchGestures';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,12 +19,12 @@ interface LayoutProps {
 const MobileNavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
   <button
     onClick={() => onClick(id)}
-    className={`flex flex-col items-center justify-center py-2 px-1 min-w-[60px] transition-all ${active
+    className={`flex flex-col items-center justify-center py-2 px-2 min-w-[60px] min-h-[56px] transition-all ${active
       ? 'text-indigo-600'
       : 'text-gray-400'
       }`}
   >
-    <div className={`p-2 rounded-xl transition-all ${active ? 'bg-indigo-100' : ''}`}>
+    <div className={`p-2.5 rounded-xl transition-all ${active ? 'bg-indigo-100' : ''}`}>
       <Icon size={22} strokeWidth={active ? 2.5 : 2} />
     </div>
     <span className={`text-[10px] mt-1 font-medium ${active ? 'text-indigo-600' : 'text-gray-500'}`}>
@@ -36,12 +37,12 @@ const MobileNavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
 const NavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
   <button
     onClick={() => onClick(id)}
-    className={`relative w-full flex items-center px-4 py-3 mb-1 text-sm font-medium transition-all duration-200 rounded-xl ${active
+    className={`relative w-full flex items-center px-4 py-3.5 mb-1 text-sm font-medium transition-all duration-200 rounded-xl min-h-[48px] ${active
       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
       : 'text-gray-600 hover:bg-gray-100'
       }`}
   >
-    <Icon size={18} className="mr-3" strokeWidth={active ? 2.5 : 2} />
+    <Icon size={20} className="mr-3" strokeWidth={active ? 2.5 : 2} />
     <span>{label}</span>
   </button>
 );
@@ -49,6 +50,32 @@ const NavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, currentTenant, userRole, currentUser, onLogout }) => {
   const { language, setLanguage, t, dir } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Gesture handlers pour swipe
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => {
+      if (mobileMenuOpen) setMobileMenuOpen(false);
+    },
+    onSwipeRight: () => {
+      if (!mobileMenuOpen) setMobileMenuOpen(true);
+    },
+  });
+
+  // Attacher les event listeners pour le swipe
+  useEffect(() => {
+    const element = document.getElementById('main-content');
+    if (!element) return;
+
+    element.addEventListener('touchstart', swipeHandlers.onTouchStart as any);
+    element.addEventListener('touchmove', swipeHandlers.onTouchMove as any);
+    element.addEventListener('touchend', swipeHandlers.onTouchEnd as any);
+
+    return () => {
+      element.removeEventListener('touchstart', swipeHandlers.onTouchStart as any);
+      element.removeEventListener('touchmove', swipeHandlers.onTouchMove as any);
+      element.removeEventListener('touchend', swipeHandlers.onTouchEnd as any);
+    };
+  }, [mobileMenuOpen, swipeHandlers]);
 
   // Navigation items based on role
   const getNavItems = () => {
@@ -81,33 +108,42 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
   ] : [];
 
   return (
-    <div className="flex flex-col h-screen bg-transparent" dir={dir}>
+    <div className="flex flex-col h-screen bg-transparent overflow-hidden" dir={dir}>
       {/* ===== MOBILE HEADER ===== */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-white/20 safe-area-top shadow-sm">
-        <div className="flex items-center justify-between px-4 h-14">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/20 safe-area-top shadow-sm">
+        <div className="flex items-center justify-between px-4 h-16">
           <button
             onClick={() => onTabChange(userRole === 'CHAUFFEUR' ? 'driver-profile' : 'dashboard')}
-            className="flex items-center space-x-3 focus:outline-none active:opacity-70 transition-opacity"
+            className="flex items-center space-x-3 focus:outline-none active:opacity-70 transition-opacity min-h-[48px] min-w-[48px]"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
-              <Truck className="text-white" size={18} />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+              <Truck className="text-white" size={20} />
             </div>
-            <span className="font-bold text-gray-800">MOMO</span>
+            <span className="font-bold text-gray-800 text-sm">MOMO</span>
           </button>
 
           <div className="flex items-center space-x-2">
             {/* Language Toggle */}
             <button
               onClick={() => setLanguage(language === 'fr' ? 'ar' : 'fr')}
-              className="px-3 py-1.5 text-xs font-bold bg-gray-100 rounded-lg"
+              className="px-4 py-2 text-sm font-bold bg-gray-100 rounded-lg min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
               {language === 'fr' ? 'عربي' : 'FR'}
+            </button>
+
+            {/* Logout Button - Always visible */}
+            <button
+              onClick={onLogout}
+              className="p-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
+              title="Déconnexion"
+            >
+              <LogOut size={20} />
             </button>
 
             {/* Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-gray-100"
+              className="p-3 rounded-lg bg-gray-100 min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -117,19 +153,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
 
       {/* ===== MOBILE SLIDE-OUT MENU ===== */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+        <div 
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in" 
+          onClick={() => setMobileMenuOpen(false)}
+        >
           <div
-            className="absolute right-0 top-14 bottom-0 w-64 bg-white shadow-xl p-4 overflow-y-auto"
+            className="absolute right-0 top-16 bottom-0 w-72 bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right"
             onClick={(e) => e.stopPropagation()}
           >
             {/* User Info */}
-            <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl mb-4">
-              <p className="font-bold text-gray-800">{currentUser?.full_name || currentTenant.name}</p>
-              <p className="text-xs text-gray-500">{userRole}</p>
+            <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 mb-2">
+              <p className="font-bold text-gray-800 text-base">{currentUser?.full_name || currentTenant.name}</p>
+              <p className="text-sm text-gray-600 mt-1">{userRole}</p>
             </div>
 
             {/* All Nav Items */}
-            <div className="space-y-1">
+            <div className="px-4 py-2 space-y-1">
               {[...navItems, ...extraNavItems].map(item => (
                 <NavItem
                   key={item.id}
@@ -143,14 +182,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
               ))}
             </div>
 
-            {/* Logout */}
-            <button
-              onClick={onLogout}
-              className="w-full mt-6 flex items-center px-4 py-3 text-red-600 bg-red-50 rounded-xl font-medium"
-            >
-              <LogOut size={18} className="mr-3" />
-              Deconnexion
-            </button>
+            {/* Logout - Also in menu for redundancy */}
+            <div className="p-4 mt-6 border-t border-gray-100">
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center justify-center px-6 py-4 text-red-600 bg-red-50 rounded-xl font-medium hover:bg-red-100 transition-colors min-h-[56px]"
+              >
+                <LogOut size={20} className="mr-3" />
+                <span className="text-base">Déconnexion</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -209,15 +250,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
       </aside>
 
       {/* ===== MAIN CONTENT ===== */}
-      <main className="flex-1 lg:ml-64 pt-14 pb-20 lg:pt-0 lg:pb-0 overflow-auto bg-transparent scrollbar-thin scrollbar-thumb-indigo-200 hover:scrollbar-thumb-indigo-300">
+      <main 
+        id="main-content"
+        className="flex-1 lg:ml-64 pt-16 pb-20 lg:pt-0 lg:pb-0 overflow-y-auto overflow-x-hidden bg-transparent"
+      >
         <div className="p-4 lg:p-8 min-h-full max-w-[1920px] mx-auto">
           {children}
         </div>
       </main>
 
       {/* ===== MOBILE BOTTOM NAVIGATION ===== */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-lg border-t border-white/20 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-around px-2 py-1">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-white/20 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-around px-2 py-2">
           {navItems.map(item => (
             <MobileNavItem
               key={item.id}

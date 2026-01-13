@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { TripRate } from '../../types';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
+import { generateId } from '../utils/uuid';
 
 export const useTripRates = () => {
     return useQuery({
@@ -42,7 +43,7 @@ export const useUpdateTripRates = () => {
             // Process rates: Ensure IDs for local DB
             const processedRates = rates.map(r => ({
                 ...r,
-                id: r.id || crypto.randomUUID()
+                id: r.id || generateId()
             }));
 
             // 1. Update Local DB

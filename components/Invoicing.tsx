@@ -169,8 +169,16 @@ export const Invoicing: React.FC = () => {
         // Default due date is 30 days from today
         const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
+        // Generate a simple UUID fallback
+        const generateId = () => {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            return 'INV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        };
+        
         setCurrentInvoice({
-            id: crypto.randomUUID(),
+            id: generateId(),
             status: InvoiceStatus.DRAFT,
             date: today,
             due_date: dueDate,

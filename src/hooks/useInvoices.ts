@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import { getValidTenantUUID, cacheTenantUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
+import { generateId } from '../utils/uuid';
 
 // Helper to map DB row to Application Type
 const mapToApp = (row: any): Invoice => ({
@@ -104,7 +105,7 @@ export const useAddInvoice = () => {
             console.log('🔵 Tenant UUID:', tenantUUID);
             
             // Generate ID if not present
-            const tempId = invoice.id || crypto.randomUUID();
+            const tempId = invoice.id || generateId();
             const invoiceWithId = { ...invoice, id: tempId };
             console.log('🔵 Invoice with ID:', invoiceWithId);
 

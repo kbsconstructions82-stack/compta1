@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import { getValidTenantUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
+import { generateId } from '../utils/uuid';
 
 // --- Helpers for Mapping ---
 
@@ -88,7 +89,7 @@ export const useAddEmployee = () => {
             }
 
             // Generate ID if missing
-            const tempId = employee.id || crypto.randomUUID();
+            const tempId = employee.id || generateId();
             const employeeWithId = { ...employee, id: tempId };
 
             let passwordHash = null;

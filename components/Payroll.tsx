@@ -631,13 +631,13 @@ export const Payroll: React.FC = () => {
 
             {/* --- MODAL: ADD EMPLOYEE --- */}
             {isAddEmployeeOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
                             <h3 className="text-lg font-bold text-gray-800">Nouveau Salarié</h3>
-                            <button onClick={() => setIsAddEmployeeOpen(false)}><X className="text-gray-400 hover:text-gray-600" /></button>
+                            <button onClick={() => setIsAddEmployeeOpen(false)} className="min-h-[48px] min-w-[48px] flex items-center justify-center"><X className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom Complet</label>
                                 <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
@@ -712,11 +712,16 @@ export const Payroll: React.FC = () => {
                                     />
                                 </div>
                             </div>
-                        </div>
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-                            <button onClick={handleSubmitNewEmployee} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">
-                                Enregistrer
-                            </button>
+                            
+                            {/* Boutons */}
+                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 pb-20">
+                                <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">
+                                    Annuler
+                                </button>
+                                <button onClick={handleSubmitNewEmployee} className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm min-h-[48px]">
+                                    Enregistrer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

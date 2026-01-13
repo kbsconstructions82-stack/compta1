@@ -69,15 +69,55 @@ export const clearAllSyncQueue = async () => {
     return count;
 };
 
+/**
+ * Remove items with invalid UUIDs from the queue
+ * Valid UUID format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+ */
+export const cleanupInvalidUUIDs = async () => {
+    console.log('[Cleanup] Searching for items with invalid UUIDs...');
+    
+    try {
+        const allItems = await db.syncQueue.toArray();
+        const invalidItems = allItems.filter(item => {
+            // Check if the data contains invalid UUID patterns
+            const dataStr = JSON.stringify(item.data);
+            // Look for patterns like "1768328552939-cick6ip" or "INV-1768328587327-9z3hknie4"
+            const hasInvalidUUID = /"\d{13}-[a-z0-9]+"/i.test(dataStr) || /"INV-\d{13}-[a-z0-9]+"/i.test(dataStr);
+            return hasInvalidUUID;
+        });
+        
+        console.log(`[Cleanup] Found ${invalidItems.length} items with invalid UUIDs`);
+        
+        if (invalidItems.length > 0) {
+            await db.syncQueue.bulkDelete(invalidItems.map(item => item.id!));
+            console.log(`[Cleanup] Deleted ${invalidItems.length} items with invalid UUIDs`);
+            console.table(invalidItems.map(item => ({
+                id: item.id,
+                table: item.table,
+                action: item.action,
+                status: item.status,
+                error: item.error?.substring(0, 100)
+            })));
+        }
+        
+        return invalidItems.length;
+    } catch (error) {
+        console.error('[Cleanup] Error during UUID cleanup:', error);
+        throw error;
+    }
+};
+
 // Make available in browser console
 if (typeof window !== 'undefined') {
     (window as any).cleanupSyncQueue = cleanupSyncQueue;
     (window as any).clearAllSyncQueue = clearAllSyncQueue;
+    (window as any).cleanupInvalidUUIDs = cleanupInvalidUUIDs;
     
     // Display help message
     console.log('%c🔧 Utilitaires de Synchronisation disponibles', 'background: #4F46E5; color: white; padding: 8px 12px; border-radius: 4px; font-weight: bold;');
     console.log('%cCommandes disponibles:', 'color: #4F46E5; font-weight: bold; margin-top: 8px;');
     console.log('  • %ccleanupSyncQueue()%c - Supprime les éléments échoués de la queue', 'color: #10B981; font-weight: bold;', 'color: inherit;');
+    console.log('  • %ccleanupInvalidUUIDs()%c - Supprime les éléments avec UUIDs invalides', 'color: #F59E0B; font-weight: bold;', 'color: inherit;');
     console.log('  • %cclearAllSyncQueue()%c - Supprime TOUS les éléments de la queue', 'color: #EF4444; font-weight: bold;', 'color: inherit;');
-    console.log('%cExemple: %cawait cleanupSyncQueue()', 'color: #6B7280;', 'color: #10B981; font-family: monospace;');
+    console.log('%cExemple: %cawait cleanupInvalidUUIDs()', 'color: #6B7280;', 'color: #F59E0B; font-family: monospace;');
 }

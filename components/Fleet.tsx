@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Vehicle, VehicleType } from '../types';
 import { Truck, Calendar, AlertTriangle, FileText, CheckCircle, Search, Filter, Clock, Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
 import { useVehicles, useUpdateVehicle, useAddVehicle, useDeleteVehicle } from '../src/hooks/useVehicles';
+import { MobileTableWrapper, MobileCard, MobileCardRow } from './MobileTableWrapper';
 
 export const Fleet: React.FC = () => {
     // Hooks
@@ -104,103 +105,192 @@ export const Fleet: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matricule</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type / Marque</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assurance</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kilométrage</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visite Technique</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxe (Vignette)</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {vehicles.map((vehicle) => {
-                            const insuranceStatus = getExpiryStatus(vehicle.insurance_expiry);
-                            const visiteStatus = getExpiryStatus(vehicle.technical_visit_expiry);
+                <MobileTableWrapper
+                    title="Véhicules"
+                    mobileCards={
+                        <>
+                            {vehicles.map((vehicle) => {
+                                const insuranceStatus = getExpiryStatus(vehicle.insurance_expiry);
+                                const visiteStatus = getExpiryStatus(vehicle.technical_visit_expiry);
+                                const vignetteStatus = getExpiryStatus(vehicle.vignette_expiry);
 
-                            return (
-                                <tr key={vehicle.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-3 py-1 rounded border border-gray-300 bg-gray-100 font-mono font-bold text-gray-800 text-sm">
-                                            {vehicle.matricule}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{vehicle.brand} {vehicle.model}</div>
-                                        <div className="text-xs text-gray-500">{vehicle.type}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className={`flex items - center space - x - 2 px - 2 py - 1 rounded - full text - xs font - medium w - fit ${insuranceStatus.color} `}>
-                                            <insuranceStatus.icon size={12} />
-                                            <span>{insuranceStatus.label}</span>
+                                return (
+                                    <MobileCard key={vehicle.id}>
+                                        {/* En-tête avec matricule */}
+                                        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+                                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                                <Truck size={24} className="text-indigo-600" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="font-mono font-bold text-gray-800 text-base">
+                                                    {vehicle.matricule}
+                                                </span>
+                                                <p className="text-sm text-gray-600">{vehicle.brand} {vehicle.model}</p>
+                                                <p className="text-xs text-gray-500">{vehicle.type}</p>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-bold text-gray-700">{vehicle.mileage?.toLocaleString()} km</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className={`flex items - center space - x - 2 px - 2 py - 1 rounded - full text - xs font - medium w - fit ${visiteStatus.color} `}>
-                                            <visiteStatus.icon size={12} />
-                                            <span>{visiteStatus.label}</span>
+
+                                        {/* Informations */}
+                                        <MobileCardRow 
+                                            label="Kilométrage" 
+                                            value={<span className="font-mono font-bold">{vehicle.mileage?.toLocaleString()} km</span>} 
+                                        />
+
+                                        {/* Statuts avec badges */}
+                                        <div className="py-2 border-b border-gray-100">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-gray-600">Assurance</span>
+                                                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${insuranceStatus.color}`}>
+                                                    <insuranceStatus.icon size={12} />
+                                                    <span>{insuranceStatus.label}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {vehicle.vignette_expiry}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex justify-end space-x-3">
-                                            <button 
-                                                onClick={() => openEditModal(vehicle)} 
-                                                className="text-blue-600 hover:text-blue-900 flex items-center"
-                                                title="Éditer"
+
+                                        <div className="py-2 border-b border-gray-100">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-gray-600">Visite Tech.</span>
+                                                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${visiteStatus.color}`}>
+                                                    <visiteStatus.icon size={12} />
+                                                    <span>{visiteStatus.label}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="py-2 border-b border-gray-100">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-gray-600">Vignette</span>
+                                                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${vignetteStatus.color}`}>
+                                                    <vignetteStatus.icon size={12} />
+                                                    <span>{vignetteStatus.label}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                onClick={() => openEditModal(vehicle)}
+                                                className="flex-1 py-3 px-4 bg-blue-50 text-blue-600 rounded-lg font-medium min-h-[48px] flex items-center justify-center gap-2 active:scale-95 transition-transform"
                                             >
-                                                <Edit2 size={14} className="mr-1" /> Éditer
+                                                <Edit2 size={18} />
+                                                <span>Modifier</span>
                                             </button>
                                             <button
                                                 onClick={() => {
-                                                    if (confirm(`Êtes-vous sûr de vouloir supprimer le véhicule ${vehicle.matricule} ?`)) {
-                                                        deleteVehicleMutation.mutate(vehicle.id, {
-                                                            onSuccess: () => {
-                                                                alert('Véhicule supprimé avec succès !');
-                                                            },
-                                                            onError: (error: any) => {
-                                                                alert('Erreur lors de la suppression : ' + (error.message || 'Inconnue'));
-                                                            }
-                                                        });
+                                                    if (confirm(`Supprimer ${vehicle.matricule} ?`)) {
+                                                        deleteVehicleMutation.mutate(vehicle.id);
                                                     }
                                                 }}
-                                                className="text-red-600 hover:text-red-900 flex items-center"
-                                                title="Supprimer"
+                                                className="py-3 px-4 bg-red-50 text-red-600 rounded-lg font-medium min-h-[48px] flex items-center justify-center active:scale-95 transition-transform"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                    </MobileCard>
+                                );
+                            })}
+                        </>
+                    }
+                >
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matricule</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type / Marque</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assurance</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kilométrage</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visite Technique</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxe (Vignette)</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {vehicles.map((vehicle) => {
+                                const insuranceStatus = getExpiryStatus(vehicle.insurance_expiry);
+                                const visiteStatus = getExpiryStatus(vehicle.technical_visit_expiry);
+
+                                return (
+                                    <tr key={vehicle.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="px-3 py-1 rounded border border-gray-300 bg-gray-100 font-mono font-bold text-gray-800 text-sm">
+                                                {vehicle.matricule}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{vehicle.brand} {vehicle.model}</div>
+                                            <div className="text-xs text-gray-500">{vehicle.type}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className={`flex items-center space-x-2 px-2 py-1 rounded-full text-xs font-medium w-fit ${insuranceStatus.color}`}>
+                                                <insuranceStatus.icon size={12} />
+                                                <span>{insuranceStatus.label}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-bold text-gray-700">{vehicle.mileage?.toLocaleString()} km</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className={`flex items-center space-x-2 px-2 py-1 rounded-full text-xs font-medium w-fit ${visiteStatus.color}`}>
+                                                <visiteStatus.icon size={12} />
+                                                <span>{visiteStatus.label}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {vehicle.vignette_expiry}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex justify-end space-x-3">
+                                                <button 
+                                                    onClick={() => openEditModal(vehicle)} 
+                                                    className="text-blue-600 hover:text-blue-900 flex items-center"
+                                                    title="Éditer"
+                                                >
+                                                    <Edit2 size={14} className="mr-1" /> Éditer
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm(`Êtes-vous sûr de vouloir supprimer le véhicule ${vehicle.matricule} ?`)) {
+                                                            deleteVehicleMutation.mutate(vehicle.id, {
+                                                                onSuccess: () => {
+                                                                    alert('Véhicule supprimé avec succès !');
+                                                                },
+                                                                onError: (error: any) => {
+                                                                    alert('Erreur lors de la suppression : ' + (error.message || 'Inconnue'));
+                                                                }
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="text-red-600 hover:text-red-900 flex items-center"
+                                                    title="Supprimer"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </MobileTableWrapper>
             </div>
 
             {/* --- ADD/EDIT MODAL --- */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
-                        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
                             <h3 className="text-lg font-bold text-gray-800 flex items-center">
                                 <Truck size={20} className="mr-2 text-blue-600" />
                                 {currentVehicle.id ? 'Éditer Véhicule' : 'Nouveau Véhicule'}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 min-h-[48px] min-w-[48px] flex items-center justify-center">
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             {/* Row 1: Identifiers */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -317,15 +407,16 @@ export const Fleet: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-2">
-                            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">
-                                Annuler
-                            </button>
-                            <button onClick={handleSave} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center">
-                                <Save size={16} className="mr-2" /> Enregistrer
-                            </button>
+                            
+                            {/* Boutons */}
+                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 pb-20">
+                                <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">
+                                    Annuler
+                                </button>
+                                <button onClick={handleSave} className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center min-h-[48px]">
+                                    <Save size={16} className="mr-2" /> Enregistrer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

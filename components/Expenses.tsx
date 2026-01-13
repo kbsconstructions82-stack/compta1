@@ -4,6 +4,7 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import { Trash2, Plus, FileText, Filter, Calendar, DollarSign, Download, Search, X, Check, Truck, PieChart, TrendingUp, CheckCircle, Receipt } from 'lucide-react';
 import { calculateTTC, calculateTVA } from '../utils/taxUtils';
 import { MOCK_DRIVERS } from '../constants';
+import { MobileTableWrapper, MobileCard, MobileCardRow } from './MobileTableWrapper';
 
 import { useExpenses, useAddExpense, useDeleteExpense } from '../src/hooks/useExpenses';
 import { useVehicles, useUpdateVehicle } from '../src/hooks/useVehicles';
@@ -404,110 +405,209 @@ export const Expenses: React.FC = () => {
       {/* --- JOURNAL VIEW --- (Admin/Manager only) */}
       {viewMode === 'journal' && userRole !== 'CHAUFFEUR' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur / Réf</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Affectation</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (HT)</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TVA</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (TTC)</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {visibleExpenses.map((exp) => {
-                const vehicle = vehicles.find(v => v.id === exp.vehicle_id);
-                return (
-                  <tr key={exp.id} className="hover:bg-gray-50 group">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{exp.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{exp.description}</div>
-                      {exp.invoice_ref_supplier && <div className="text-xs text-gray-400">Réf: {exp.invoice_ref_supplier}</div>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${exp.category === ExpenseCategory.FUEL ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {exp.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {vehicle ? (
-                        <div className="flex items-center text-blue-600">
-                          <Truck size={14} className="mr-1" />
-                          {vehicle.matricule}
+          <MobileTableWrapper
+            title="Journal des Dépenses"
+            mobileCards={
+              <>
+                {visibleExpenses.map((exp) => {
+                  const vehicle = vehicles.find(v => v.id === exp.vehicle_id);
+                  return (
+                    <MobileCard key={exp.id}>
+                      {/* En-tête */}
+                      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
+                        <div className="flex-1">
+                          <p className="font-bold text-gray-800 text-base">{exp.description}</p>
+                          <p className="text-sm text-gray-500">{new Date(exp.date).toLocaleDateString('fr-FR')}</p>
+                          {exp.invoice_ref_supplier && (
+                            <p className="text-xs text-gray-400 mt-1">Réf: {exp.invoice_ref_supplier}</p>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-gray-400 italic">Structure</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                      {exp.amount_ht.toFixed(3)}
-                      {exp.attachment_url && (
-                        <a href={exp.attachment_url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-block text-blue-500 hover:text-blue-700" title="Voir justificatif">
-                          <FileText size={14} />
-                        </a>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <div className={exp.is_deductible ? 'text-green-600' : 'text-red-400 line-through'}>
-                        {exp.tva_amount.toFixed(3)}
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          exp.category === ExpenseCategory.FUEL ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {exp.category}
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">{exp.amount_ttc.toFixed(3)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
+
+                      {/* Affectation */}
+                      {vehicle && (
+                        <div className="py-2 border-b border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-600">Véhicule</span>
+                            <div className="flex items-center gap-1 text-blue-600 font-medium">
+                              <Truck size={14} />
+                              <span>{vehicle.matricule}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Montants */}
+                      <MobileCardRow 
+                        label="Montant HT" 
+                        value={`${exp.amount_ht.toFixed(3)} TND`} 
+                      />
+                      <MobileCardRow 
+                        label="TVA" 
+                        value={
+                          <span className={exp.is_deductible ? 'text-green-600 font-bold' : 'text-red-400 line-through'}>
+                            {exp.tva_amount.toFixed(3)} TND
+                          </span>
+                        } 
+                      />
+                      <MobileCardRow 
+                        label="Montant TTC" 
+                        value={<span className="font-bold text-indigo-600 text-lg">{exp.amount_ttc.toFixed(3)} TND</span>} 
+                      />
+
+                      {/* Justificatif */}
+                      {exp.attachment_url && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <a 
+                            href={exp.attachment_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 text-blue-600 rounded-lg font-medium min-h-[48px]"
+                          >
+                            <FileText size={18} />
+                            <span>Voir justificatif</span>
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex gap-2 mt-4">
                         <button
                           onClick={() => {
                             setNewExpense(exp);
                             setViewMode('form');
                           }}
-                          className="text-gray-400 hover:text-[#007BFF] transition-colors p-1 rounded-full hover:bg-blue-50"
-                          title="Modifier"
+                          className="flex-1 py-3 px-4 bg-gray-50 text-gray-700 rounded-lg font-medium min-h-[48px] active:scale-95 transition-transform"
                         >
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="feather feather-edit-2"
-                            >
-                              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                            </svg>
-                          </div>
+                          Modifier
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm('Êtes-vous sûr de vouloir supprimer cette charge ?')) {
-                              deleteExpenseMutation.mutate(exp.id, {
-                                onSuccess: () => {
-                                  alert('Charge supprimée avec succès !');
-                                },
-                                onError: (error: any) => {
-                                  alert('Erreur lors de la suppression : ' + (error.message || 'Inconnue'));
-                                }
-                              });
+                            if (confirm('Supprimer cette charge ?')) {
+                              deleteExpenseMutation.mutate(exp.id);
                             }
                           }}
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50"
-                          title="Supprimer"
+                          className="py-3 px-4 bg-red-50 text-red-600 rounded-lg font-medium min-h-[48px] flex items-center justify-center active:scale-95 transition-transform"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </MobileCard>
+                  );
+                })}
+              </>
+            }
+          >
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur / Réf</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Affectation</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (HT)</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TVA</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (TTC)</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {visibleExpenses.map((exp) => {
+                  const vehicle = vehicles.find(v => v.id === exp.vehicle_id);
+                  return (
+                    <tr key={exp.id} className="hover:bg-gray-50 group">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{exp.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{exp.description}</div>
+                        {exp.invoice_ref_supplier && <div className="text-xs text-gray-400">Réf: {exp.invoice_ref_supplier}</div>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${exp.category === ExpenseCategory.FUEL ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {exp.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {vehicle ? (
+                          <div className="flex items-center text-blue-600">
+                            <Truck size={14} className="mr-1" />
+                            {vehicle.matricule}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">Structure</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {exp.amount_ht.toFixed(3)}
+                        {exp.attachment_url && (
+                          <a href={exp.attachment_url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-block text-blue-500 hover:text-blue-700" title="Voir justificatif">
+                            <FileText size={14} />
+                          </a>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <div className={exp.is_deductible ? 'text-green-600' : 'text-red-400 line-through'}>
+                          {exp.tva_amount.toFixed(3)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">{exp.amount_ttc.toFixed(3)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => {
+                              setNewExpense(exp);
+                              setViewMode('form');
+                            }}
+                            className="text-gray-400 hover:text-[#007BFF] transition-colors p-1 rounded-full hover:bg-blue-50"
+                            title="Modifier"
+                          >
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="feather feather-edit-2"
+                              >
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                              </svg>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Êtes-vous sûr de vouloir supprimer cette charge ?')) {
+                                deleteExpenseMutation.mutate(exp.id, {
+                                  onSuccess: () => {
+                                    alert('Charge supprimée avec succès !');
+                                  },
+                                  onError: (error: any) => {
+                                    alert('Erreur lors de la suppression : ' + (error.message || 'Inconnue'));
+                                  }
+                                });
+                              }
+                            }}
+                            className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </MobileTableWrapper>
         </div>
       )}
 

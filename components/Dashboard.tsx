@@ -25,25 +25,25 @@ interface DashboardProps {
 const StatCard = ({ title, value, subtext, icon: Icon, gradientClass, onClick }: any) => (
     <div
         onClick={onClick}
-        className="glass-panel rounded-xl p-5 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer h-full flex flex-col justify-between"
+        className="glass-panel rounded-xl p-4 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer h-full flex flex-col justify-between min-h-[140px] active:scale-[0.98]"
     >
         {/* Background Icon - Simplified and positioned safely */}
-        <div className="absolute -right-6 -top-6 opacity-[0.05] pointer-events-none transition-opacity group-hover:opacity-10">
-            <Icon size={120} />
+        <div className="absolute -right-4 -top-4 opacity-[0.05] pointer-events-none transition-opacity group-hover:opacity-10">
+            <Icon size={100} />
         </div>
 
         <div className="flex justify-between items-start relative z-10 mb-2">
             <div className={`w-12 h-12 rounded-xl ${gradientClass} flex items-center justify-center shadow-lg border border-white/20 flex-shrink-0`}>
-                <Icon size={24} className="text-white" />
+                <Icon size={22} className="text-white" />
             </div>
              {/* Optional: Add a small arrow or indicator here if needed */}
         </div>
 
         <div className="relative z-10">
-            <h3 className="text-2xl font-extrabold text-gray-800 tracking-tight mb-1">{value}</h3>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</p>
+            <h3 className="text-2xl lg:text-3xl font-extrabold text-gray-800 tracking-tight mb-1">{value}</h3>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</p>
             
-            <div className="flex items-center text-xs font-medium text-gray-600 bg-white/50 w-fit px-2 py-1 rounded-lg backdrop-blur-sm border border-white/30">
+            <div className="flex items-center text-[10px] font-medium text-gray-600 bg-white/50 w-fit px-2 py-1 rounded-lg backdrop-blur-sm border border-white/30">
                 {subtext}
             </div>
         </div>
@@ -51,23 +51,23 @@ const StatCard = ({ title, value, subtext, icon: Icon, gradientClass, onClick }:
 );
 
 const DetailModal = ({ title, onClose, children, colorClass = "bg-white" }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
         <div
-            className={`${colorClass} w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100`}
+            className={`${colorClass} w-full lg:max-w-4xl max-h-[85vh] lg:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100`}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/50 backdrop-blur-md">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+            <div className="p-4 lg:p-6 border-b border-gray-100 flex justify-between items-center bg-white/50 backdrop-blur-md flex-shrink-0">
+                <h3 className="text-lg lg:text-xl font-bold text-gray-800 flex items-center">
                     {title}
                 </h3>
                 <button
                     onClick={onClose}
-                    className="p-2 hover:bg-black/5 rounded-full text-gray-500 transition-colors"
+                    className="p-3 hover:bg-black/5 rounded-full text-gray-500 transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
                 >
                     <X size={24} />
                 </button>
             </div>
-            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+            <div className="p-4 lg:p-6 pb-24 overflow-y-auto flex-1">
                 {children}
             </div>
         </div>
@@ -651,7 +651,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             )}
 
             {/* KPI Stats - Glassmorphism & 3D Icons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6">
                 <StatCard
                     title={t('turnover')}
                     value={`${report.turnover.toLocaleString()} TND`}

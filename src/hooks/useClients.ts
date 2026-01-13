@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import { getValidTenantUUID, cacheTenantUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
+import { generateId } from '../utils/uuid';
 
 export const useClients = () => {
     return useQuery({
@@ -50,7 +51,7 @@ export const useAddClient = () => {
             const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
             
             // Generate UUID if missing
-            const tempId = client.id || crypto.randomUUID();
+            const tempId = client.id || generateId();
 
             const newClient = {
                 ...client,

@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import { getValidTenantUUID, cacheTenantUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db'; // Import Dexie DB
 import { syncService } from '../services/syncService'; // Import Sync Service
+import { generateId } from '../utils/uuid';
 
 // --- HELPER: Map DB (Snake) to App (Camel) ---
 const mapMissionFromDB = (m: any): Mission => ({
@@ -106,7 +107,7 @@ export const useAddMission = () => {
             const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
             
             // Generate a temporary ID if not present (UUID v4-like)
-            const tempId = mission.id || crypto.randomUUID();
+            const tempId = mission.id || generateId();
             const missionWithId = { ...mission, id: tempId };
 
             const dbPayload = mapMissionToDB(missionWithId, tenantUUID);

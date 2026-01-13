@@ -1124,17 +1124,17 @@ export const Operations: React.FC = () => {
 
             {/* --- INCIDENT MODAL --- */}
             {isIncidentModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center flex-shrink-0">
                             <h3 className="text-lg font-bold text-red-800 flex items-center">
                                 <AlertTriangle size={20} className="mr-2" /> Signaler un Incident
                             </h3>
-                            <button onClick={() => setIncidentModalOpen(false)} className="text-red-400 hover:text-red-600">
+                            <button onClick={() => setIncidentModalOpen(false)} className="text-red-400 hover:text-red-600 min-h-[48px] min-w-[48px] flex items-center justify-center">
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Type d'incident</label>
                                 <select
@@ -1184,12 +1184,14 @@ export const Operations: React.FC = () => {
                                     Véhicule Immobilisé (Arrêt Mission)
                                 </label>
                             </div>
-                        </div>
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-2">
-                            <button onClick={() => setIncidentModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Annuler</button>
-                            <button onClick={handleSubmitIncident} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 shadow-sm">
-                                Confirmer l'Incident
-                            </button>
+                            
+                            {/* Boutons */}
+                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200">
+                                <button onClick={() => setIncidentModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">Annuler</button>
+                                <button onClick={handleSubmitIncident} className="px-6 py-3 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 shadow-sm min-h-[48px]">
+                                    Confirmer l'Incident
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1197,17 +1199,17 @@ export const Operations: React.FC = () => {
 
             {/* --- CLOSE MISSION MODAL --- */}
             {isCloseModalOpen && selectedMission && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center flex-shrink-0">
                             <h3 className="text-lg font-bold text-blue-800 flex items-center">
                                 <CheckCircle size={20} className="mr-2" /> Clôturer la Mission
                             </h3>
-                            <button onClick={() => setCloseModalOpen(false)} className="text-blue-400 hover:text-blue-600">
+                            <button onClick={() => setCloseModalOpen(false)} className="text-blue-400 hover:text-blue-600 min-h-[48px] min-w-[48px] flex items-center justify-center">
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Date de Fin</label>
@@ -1304,12 +1306,14 @@ export const Operations: React.FC = () => {
                                     onChange={(e) => setCloseForm({ ...closeForm, note: e.target.value })}
                                 ></textarea>
                             </div>
-                        </div>
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-2">
-                            <button onClick={() => setCloseModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Annuler</button>
-                            <button onClick={handleSubmitClose} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center">
-                                <Save size={16} className="mr-2" /> Enregistrer
-                            </button>
+                            
+                            {/* Boutons */}
+                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 pb-20">
+                                <button onClick={() => setCloseModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">Annuler</button>
+                                <button onClick={handleSubmitClose} className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center min-h-[48px]">
+                                    <Save size={16} className="mr-2" /> Enregistrer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1317,17 +1321,17 @@ export const Operations: React.FC = () => {
 
             {/* --- PLAN MISSION MODAL --- */}
             {isPlanMissionModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-                        <div className="bg-blue-600 p-4 border-b border-blue-700 flex justify-between items-center text-white">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-blue-600 p-4 border-b border-blue-700 flex justify-between items-center text-white flex-shrink-0">
                             <h3 className="text-lg font-bold flex items-center">
                                 <MapPin size={20} className="mr-2" /> Planifier Nouvelle Mission
                             </h3>
-                            <button onClick={() => setPlanMissionModalOpen(false)} className="text-blue-200 hover:text-white">
+                            <button onClick={() => setPlanMissionModalOpen(false)} className="text-blue-200 hover:text-white min-h-[48px] min-w-[48px] flex items-center justify-center">
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             {/* Client & Date */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -1579,12 +1583,14 @@ export const Operations: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        </div>
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-2">
-                            <button onClick={() => setPlanMissionModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Annuler</button>
-                            <button onClick={handleCreateMission} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm">
-                                Confirmer la Mission
-                            </button>
+                            
+                            {/* Boutons */}
+                            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 pb-20">
+                                <button onClick={() => setPlanMissionModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">Annuler</button>
+                                <button onClick={handleCreateMission} className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm min-h-[48px]">
+                                    Confirmer la Mission
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
