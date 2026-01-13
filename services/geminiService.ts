@@ -1,7 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Invoice, Expense, Vehicle, Mission } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialiser Gemini seulement si une clé API est disponible
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 // System instruction for the AI to act as a Tunisian accounting expert
 const SYSTEM_INSTRUCTION = `You are a Tunisian Expert Accountant and Software Architect specialized in the transport sector.
@@ -13,6 +15,11 @@ export const analyzeFinancialHealth = async (
   invoices: Invoice[],
   expenses: Expense[]
 ): Promise<string> => {
+  // Si pas de clé API, retourner un message par défaut
+  if (!ai) {
+    return "💡 Analyse IA désactivée. Configurez VITE_GEMINI_API_KEY dans les variables d'environnement pour activer cette fonctionnalité.";
+  }
+
   try {
     const dataSummary = JSON.stringify({
       totalRevenue: invoices.reduce((acc, inv) => acc + inv.items.reduce((s, i) => s + (i.quantity * i.unit_price), 0), 0),
@@ -39,6 +46,11 @@ export const analyzeFinancialHealth = async (
 };
 
 export const suggestOptimization = async (vehicles: Vehicle[], missions: Mission[]): Promise<string> => {
+    // Si pas de clé API, retourner un message par défaut
+    if (!ai) {
+        return "💡 Suggestions d'optimisation désactivées. Configurez VITE_GEMINI_API_KEY pour activer cette fonctionnalité.";
+    }
+
     try {
         const fleetData = JSON.stringify({
             vehicleCount: vehicles.length,
