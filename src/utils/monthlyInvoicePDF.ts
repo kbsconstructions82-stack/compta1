@@ -96,15 +96,17 @@ export const generateMonthlyInvoicePDF = async (data: MonthlyInvoiceData) => {
         const tableData = data.items.map(item => {
             const dateStr = item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('fr-FR') : '-';
             const trajetStr = item.trajet || '';
+            const prefP = item.pref_p || '-';
+            const devise = item.devise || 'TND';
             const htStr = item.ht.toFixed(3);
             const ttcStr = item.ttc.toFixed(3);
 
-            return [dateStr, trajetStr, item.piece_no || '-', htStr, ttcStr];
+            return [dateStr, trajetStr, item.piece_no || '-', prefP, devise, htStr, ttcStr];
         });
 
         autoTable(doc, {
             startY: y,
-            head: [['Date', 'Trajet', 'Piece', 'HT (TND)', 'TTC (TND)']],
+            head: [['Date', 'Trajet', 'Piece', 'Préf.P', 'Devise', 'HT', 'TTC']],
             body: tableData,
             theme: 'grid',
             styles: {
@@ -125,11 +127,13 @@ export const generateMonthlyInvoicePDF = async (data: MonthlyInvoiceData) => {
                 halign: 'center'
             },
             columnStyles: {
-                0: { cellWidth: 25, halign: 'center' },
-                1: { cellWidth: 'auto' },
-                2: { cellWidth: 25, halign: 'center' },
-                3: { cellWidth: 28, halign: 'right' },
-                4: { cellWidth: 28, halign: 'right' }
+                0: { cellWidth: 24, halign: 'center' },     // Date
+                1: { cellWidth: 'auto' },                    // Trajet
+                2: { cellWidth: 20, halign: 'center' },     // Piece
+                3: { cellWidth: 18, halign: 'center' },     // Préf.P
+                4: { cellWidth: 18, halign: 'center' },     // Devise
+                5: { cellWidth: 26, halign: 'right' },      // HT
+                6: { cellWidth: 26, halign: 'right' }       // TTC
             },
             margin: { left: margin, right: margin },
             tableWidth: 'auto'
