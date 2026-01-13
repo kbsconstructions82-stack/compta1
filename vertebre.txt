@@ -1,0 +1,48 @@
+Refonte architecturale de l'application de comptabilité de transport tunisienne :
+
+1. Architecture de base de données unifiée :
+   - Restructurer le schéma SQL pour implémenter des relations complètes entre les entités :
+     * Tables principales : Camions (ID_Camion PK), Chauffeurs (ID_Chauffeur PK), Clients
+     * Tables transactionnelles : Factures (ID_Facture PK, ID_Camion FK), Dépenses (ID_Dépense PK, ID_Camion FK, Catégorie)
+     * Tables financières : Transactions (ID_Transaction PK, Montant, Date, Type, Référence_ID)
+   - Implémenter des contraintes de clé étrangère pour garantir l'intégrité référentielle
+
+2. Moteur financier central :
+   - Développer un service "CoreAccounting" qui gère :
+     * L'enregistrement automatique des transactions financières
+     * Le calcul en temps réel des indicateurs clés (cash-flow, profit par camion)
+     * La synchronisation bidirectionnelle avec tous les modules
+   - Workflow standardisé pour les opérations :
+     1. Saisie dans un module (ex: création facture)
+     2. Validation par le moteur central
+     3. Mise à jour en cascade des données liées
+     4. Notification aux modules concernés
+
+3. Système de TVA intelligent :
+   - Créer un microservice "TVAEngine" avec :
+     * Base de calculs réglementaires tunisiens
+     * Journal des opérations TVA (collectée/déductible)
+     * Connecteurs vers les modules Facturation et Dépenses
+   - Fonctionnalités :
+     * Algorithme de calcul automatique
+     * Génération des déclarations fiscales
+     * Alertes pour les échéances
+
+4. Plan de migration :
+   - Phase 1 : Refactorisation de la base de données 
+   - Phase 2 : Implémentation du moteur central 
+   - Phase 3 : Adaptation des modules existants 
+   - Phase 4 : Tests et validation 
+
+5. Contrôles de qualité :
+   - Tests d'intégration complets pour vérifier :
+     * La cohérence des données après chaque opération
+     * Le calcul correct des indicateurs financiers
+     * La conformité fiscale tunisienne
+   - Monitoring en production des flux inter-modules
+
+6. Documentation à fournir :
+   - Schéma architectural détaillé
+   - Guide de développement pour les nouvelles fonctionnalités
+   - Manuel des APIs internes
+   - Procédures de migration des données existantes

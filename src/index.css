@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Styles moved from index.html */
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6; /* Solid fallback */
+  background: radial-gradient(circle at 0% 0%, #eef2ff 0%, #e0e7ff 40%, #f3f4f6 100%);
+  background-attachment: fixed;
+  color: #1f2937; /* Default dark text for readability */
+}
+
+/* Arabic Font Override */
+body[dir="rtl"] {
+  font-family: 'Cairo', sans-serif;
+}
+
+/* 3D/Glass Utilities - Refined for better visibility/frames */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.9); /* Increased opacity for better readability */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Standard shadow for depth */
+}
+
+/* Darker glass for specific accents if needed */
+.glass-panel-dark {
+    background: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.soft-plastic {
+  background: linear-gradient(145deg, #ffffff, #f3f4f6);
+  box-shadow:
+    5px 5px 10px #d1d5db,
+    -5px -5px 10px #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.soft-plastic-inset {
+  background: #f3f4f6;
+  box-shadow: inset 2px 2px 5px #d1d5db, inset -5px -5px 10px #ffffff;
+}
+
+/* Premium Gradients for Icons */
+.grad-violet {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+}
+
+.grad-cyan {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+}
+
+.grad-orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.grad-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* Mobile Safe Areas */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Touch-friendly sizing */
+@media (max-width: 1023px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Prevent text selection on nav items */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}

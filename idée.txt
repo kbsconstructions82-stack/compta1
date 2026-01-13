@@ -1,0 +1,331 @@
+Kbs Construction
+
+Transport Accounting Application (Tunisia)
+
+You are a senior software architect and certified public accountant , specialized in Tunisian accounting standards, local taxation, and road freight transport companies .
+
+Your mission is to design a complete mobile accounting application for a Tunisian road freight transport company operating semi-trailer trucks , employing salaried drivers , and providing goods transportation services to large companies across all governorates of Tunisia .
+
+The application must be:
+
+Fully compliant with Tunisian accounting and tax regulations
+
+Easy to use for non-accountants
+
+Technically, legally, and fiscally accurate
+
+1️⃣ General Objectives of the Application
+
+Manage the company’s entire internal accounting
+
+Centralize:
+
+Expenses
+
+Invoices
+
+VAT
+
+Salaries
+
+CNSS (social security)
+
+Automatically generate financial and tax reports
+
+Reduce dependency on an external accountant
+
+Prepare data for Tunisian tax declarations
+
+2️⃣ Mandatory Functional Structure
+
+🔹 A. Expenses Section
+
+Create a detailed expense management module with the following subcategories:
+
+1. Payroll Expenses
+
+Drivers
+
+Administrative staff
+
+Gross salary
+
+Bonuses
+
+Overtime
+
+Salary advances
+
+Deductions
+
+Net salary
+
+2. CNSS (Social Security)
+
+Employer contribution
+
+Employee contribution
+
+Payment history
+
+Monthly contribution status
+
+3. Vehicle / Operating Expenses
+
+Fuel per truck
+
+Mechanical breakdowns
+
+Repairs
+
+Spare parts
+
+Insurance
+
+Road tax (vignette)
+
+Tolls
+
+Periodic maintenance
+
+4. Other Expenses
+
+Telephone
+
+Internet
+
+Rent
+
+Office supplies
+
+Professional fees
+
+Various taxes and duties
+
+🔹 B. VAT Section (Compliant with Tunisian Regulations)
+
+Collected VAT (customer invoices)
+
+Deductible VAT (expenses)
+
+Automatic calculation of:
+
+VAT payable
+
+VAT credit
+
+Period management:
+
+Monthly
+
+Quarterly
+
+Export of VAT data for VAT declarations
+
+🔹 C. Invoicing Section
+
+Creation of customer invoices
+
+Mandatory information:
+
+Customer
+
+Tax identification number
+
+Service (transport)
+
+Departure / destination
+
+Truck used
+
+Driver
+
+Amount excluding VAT (HT)
+
+VAT amount
+
+Total amount including VAT (TTC)
+
+Legal invoice numbering
+
+Invoice statuses:
+
+Draft
+
+Issued
+
+Paid
+
+Unpaid
+
+Invoice history per customer
+
+🔹 D. Personal Expenses Section (Company Owner)
+
+Personal expenses related to business activity
+
+Owner advances
+
+Reimbursements
+
+Clear separation between:
+
+Business expenses
+
+Personal expenses
+
+🔹 E. Reports & Dashboards Section
+
+Create a clear reporting module including:
+
+Financial Reports
+
+Monthly profit/loss
+
+Annual profit/loss
+
+Expenses by category
+
+Revenue by customer
+
+Profitability per truck
+
+Tax Reports
+
+VAT statement
+
+Deductible expenses summary
+
+CNSS summary
+
+Visual Dashboards
+
+Charts
+
+Key Performance Indicators (KPIs)
+
+Alerts
+
+VAT payable
+
+High expenses
+
+Unpaid invoices
+
+3️⃣ Expected Technical Constraints
+
+Simple interface (non-accountant friendly)
+
+Clear separation between:
+
+Financial data
+
+Tax data
+
+Structured database (clear schema)
+
+Full operation history and traceability
+
+Export capabilities:
+
+PDF
+
+Excel
+
+Future-ready for:
+
+Tax declarations
+
+Integration with an external accountant
+
+4️⃣ Expected Output of Your Response
+
+You must provide:
+
+Complete functional architecture of the application
+
+Database schema (tables + relationships)
+
+Calculation logic (VAT, expenses, profit/loss)
+
+Main screens (UX/UI descriptions)
+
+Best Tunisian accounting practices adapted to road freight transport
+
+SOLO Coder
+
+Thought process
+
+Document Functional Architecture (Modules & Data Flow) & Generate Database Schema (SQL) & Define Calculation Logic (VAT, Payroll, RS) & Describe Main Screens & UX/UI & Document Best Practices for Tunisian Transport Accounting
+
+0/5 done
+
+Research current Tunisian tax rates (VAT for road freight, CNSS rates, withholding tax) for 2024/2025
+
+Design Functional Architecture and Database Schema
+
+Define Calculation Logic (VAT, CNSS, Profit/Loss)
+
+Outline Main Screens and UX/UI
+
+Compile Best Practices for Tunisian Transport Accounting
+
+Search for "Tunisia road freight transport VAT rate 2024 2025"
+4 Results
+
+Search for "Tunisia CNSS contribution rates 2024 2025 employer employee"
+5 Results
+
+Search for "Tunisia withholding tax rates transport services 2025"
+5 Results
+
+Thought
+
+Tunisian Transport Accounting App Design
+
+markdown
+
+Executed
+
+Thought
+
+5 to-dos
+
+Document Functional Architecture (Modules & Data Flow)
+
+Generate Database Schema (SQL)
+
+Define Calculation Logic (VAT, Payroll, RS)
+
+Describe Main Screens & UX/UI
+
+Document Best Practices for Tunisian Transport Accounting
+
+Thought
+
+design_spec.md
+design_spec.md
+
++ 239 - 0
+
+Open Diff
+
+Thought
+
+5/5 done
+
+Document Functional Architecture (Modules & Data Flow)
+
+Generate Database Schema (SQL)
+
+Define Calculation Logic (VAT, Payroll, RS)
+
+Describe Main Screens & UX/UI
+
+Document Best Practices for Tunisian Transport Accounting
+
+The Transport Accounting Application Design Specification has been generated. This document serves as the technical and functional blueprint for building the application, specifically tailored to the Tunisian legal and fiscal context for 2025.
+
+You can view the complete specification here: design_spec.md
+
+### Key Highlights of the Design
