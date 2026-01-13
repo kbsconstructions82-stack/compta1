@@ -82,6 +82,17 @@ export class SyncService {
         } catch (error: any) {
             console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
             
+            // CRITICAL: Check for duplicate key / unique constraint violations
+            if (error.message && (
+                error.message.includes('duplicate key value violates unique constraint') ||
+                error.message.includes('unique constraint') ||
+                error.message.includes('duplicate key')
+            )) {
+                console.warn(`[SyncService] Duplicate detected for item ${item.id}. Removing from queue (already exists in database).`);
+                await db.syncQueue.delete(item.id!);
+                return; // Stop processing this item - it's already in the database
+            }
+            
             // CRITICAL: Check for invalid UUID syntax to avoid infinite loops
             if (error.message && error.message.includes('invalid input syntax for type uuid')) {
                 console.error(`[SyncService] Critical Error: Invalid UUID found in queue for item ${item.id}. Marking as FAILED permanently to unblock queue.`);
