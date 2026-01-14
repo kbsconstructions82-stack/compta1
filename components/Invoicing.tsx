@@ -1280,27 +1280,27 @@ export const Invoicing: React.FC = () => {
     if (viewMode === 'preview' && currentInvoice) {
         const client = clients.find(c => c.id === currentInvoice.client_id);
         return (
-            <div className="max-w-4xl mx-auto space-y-4">
+            <div className="max-w-4xl mx-auto space-y-4 px-2 sm:px-4">
                 <div className="flex items-center justify-between no-print">
-                    <button onClick={() => setViewMode('list')} className="text-gray-500 hover:text-gray-700 flex items-center">
+                    <button onClick={() => setViewMode('list')} className="text-gray-500 hover:text-gray-700 flex items-center px-3 py-2 rounded-lg border border-gray-200">
                         <ArrowLeft size={16} className="mr-1" /> Retour
                     </button>
-                    <button className="bg-gray-800 text-white px-4 py-2 rounded-lg flex items-center shadow-sm hover:bg-gray-900">
+                    <button className="bg-gray-800 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center shadow-sm hover:bg-gray-900 text-sm sm:text-base">
                         <Printer size={16} className="mr-2" /> Imprimer
                     </button>
                 </div>
 
                 {/* Invoice Paper Layout */}
-                <div className="bg-white p-12 shadow-lg border border-gray-200 min-h-[800px] relative">
+                <div className="bg-white p-4 sm:p-12 shadow-lg border border-gray-200 min-h-[800px] relative">
                     {/* Header */}
-                    <div className="flex justify-between mb-12">
+                    <div className="flex flex-col sm:flex-row justify-between gap-4 mb-8 sm:mb-12">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800 uppercase tracking-widest">Facture</h1>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 uppercase tracking-widest">Facture</h1>
                             <p className="text-gray-500 mt-2">N° {currentInvoice.number}</p>
                             <p className="text-sm text-gray-500">Date: {currentInvoice.date}</p>
                         </div>
-                        <div className="text-right">
-                            <h2 className="text-xl font-bold text-blue-800">TunisFret S.A.R.L</h2>
+                        <div className="sm:text-right">
+                            <h2 className="text-lg sm:text-xl font-bold text-blue-800">TunisFret S.A.R.L</h2>
                             <p className="text-sm text-gray-600">15 Rue de l'Industrie</p>
                             <p className="text-sm text-gray-600">2014 Mégrine, Tunisie</p>
                             <p className="text-sm text-gray-600">MF: 1234567/A/M/000</p>
@@ -1308,44 +1308,45 @@ export const Invoicing: React.FC = () => {
                     </div>
 
                     {/* Client Info */}
-                    <div className="mb-12 border-l-4 border-blue-600 pl-6 py-2">
+                    <div className="mb-8 sm:mb-12 border-l-4 border-blue-600 pl-4 sm:pl-6 py-2">
                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Facturer à</p>
-                        <h3 className="text-xl font-bold text-gray-800">{client?.name}</h3>
-                        <p className="text-gray-600">{client?.address}</p>
-                        <p className="text-gray-600 text-sm mt-1">Matricule Fiscale: {client?.matricule_fiscale}</p>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800">{client?.name}</h3>
+                        <p className="text-sm sm:text-base text-gray-600">{client?.address}</p>
+                        <p className="text-gray-600 text-xs sm:text-sm mt-1">Matricule Fiscale: {client?.matricule_fiscale}</p>
                     </div>
 
                     {/* Items Table */}
-                    <table className="w-full mb-12">
+                    <div className="overflow-x-auto mb-8 sm:mb-12 -mx-4 sm:mx-0">
+                    <table className="w-full min-w-[600px]">
                         <thead>
                             <tr className="border-b-2 border-gray-800">
-                                <th className="text-left py-3 text-sm font-bold text-gray-600 uppercase">Trajet / Désignation</th>
-                                <th className="text-center py-3 text-sm font-bold text-gray-600 uppercase">Préf.P</th>
-                                <th className="text-center py-3 text-sm font-bold text-gray-600 uppercase">Pièce N°</th>
-                                <th className="text-center py-3 text-sm font-bold text-gray-600 uppercase">Qté</th>
-                                <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">P.U (HT)</th>
-                                <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Total (HT)</th>
+                                <th className="text-left py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">Trajet / Désignation</th>
+                                <th className="text-center py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">Préf.P</th>
+                                <th className="text-center py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">Pièce N°</th>
+                                <th className="text-center py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">Qté</th>
+                                <th className="text-right py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">P.U (HT)</th>
+                                <th className="text-right py-3 px-2 text-xs sm:text-sm font-bold text-gray-600 uppercase">Total (HT)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {currentInvoice.items?.map((item, i) => (
                                 <tr key={i}>
-                                    <td className="py-4 text-gray-800">
-                                        <div className="font-bold">{item.trajet}</div>
-                                        <div className="text-sm text-gray-500">{item.description}</div>
+                                    <td className="py-3 px-2 text-gray-800">
+                                        <div className="font-bold text-xs sm:text-sm">{item.trajet}</div>
+                                        <div className="text-xs text-gray-500">{item.description}</div>
                                     </td>
-                                    <td className="py-4 text-center text-gray-600 font-mono text-xs">
+                                    <td className="py-3 px-2 text-center text-gray-600 font-mono text-xs">
                                         {item.pref_p || 'ABLL'}
                                     </td>
-                                    <td className="py-4 text-center text-gray-600 font-mono text-xs">
+                                    <td className="py-3 px-2 text-center text-gray-600 font-mono text-xs">
                                         {item.piece_no}
                                     </td>
-                                    <td className="py-4 text-center text-gray-600">{item.quantity}</td>
-                                    <td className="py-4 text-right text-gray-600">
+                                    <td className="py-3 px-2 text-center text-gray-600 text-xs sm:text-sm">{item.quantity}</td>
+                                    <td className="py-3 px-2 text-right text-gray-600 text-xs sm:text-sm">
                                         {item.unit_price.toFixed(3)}
                                         <span className="text-[10px] ml-1">{item.devise || 'TND'}</span>
                                     </td>
-                                    <td className="py-4 text-right text-gray-800 font-medium">
+                                    <td className="py-3 px-2 text-right text-gray-800 font-medium text-xs sm:text-sm">
                                         {(item.quantity * item.unit_price).toFixed(3)}
                                         <span className="text-[10px] ml-1">{item.devise || 'TND'}</span>
                                     </td>
@@ -1353,10 +1354,11 @@ export const Invoicing: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
 
                     {/* Totals */}
-                    <div className="flex justify-end mb-16">
-                        <div className="w-64 space-y-3">
+                    <div className="flex justify-end mb-12 sm:mb-16">
+                        <div className="w-full sm:w-64 space-y-3">
                             <div className="flex justify-between text-sm text-gray-600">
                                 <span>Total HT</span>
                                 <span>{currentInvoice.total_ht?.toFixed(2)} €</span>
@@ -1391,11 +1393,11 @@ export const Invoicing: React.FC = () => {
                     </div>
 
                     {/* Legal Footer */}
-                    <div className="absolute bottom-12 left-12 right-12 text-center border-t border-gray-200 pt-8">
-                        <p className="text-xs text-gray-500">
+                    <div className="mt-8 sm:mt-12 text-center border-t border-gray-200 pt-6 sm:pt-8">
+                        <p className="text-[10px] sm:text-xs text-gray-500">
                             Arrêté la présente facture à la somme de : <span className="italic font-medium text-gray-700"> ... (Somme en toutes lettres) ... </span>
                         </p>
-                        <p className="text-xs text-gray-400 mt-4">
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-3 sm:mt-4">
                             TunisFret S.A.R.L - RC: B1122332020 - RIB: 12 345 678 9012345678 99 (BIAT)
                         </p>
                     </div>

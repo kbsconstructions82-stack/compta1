@@ -14,13 +14,15 @@ import {
 } from '../services/fiscalMappingService';
 import { BookOpen, PieChart, RefreshCw, FileText, Download, Calendar, Calculator, AlertTriangle, ArrowRight, Table, Landmark, Users, TrendingUp, TrendingDown, Search, ArrowDownRight, ArrowUpRight, Database } from 'lucide-react';
 
-import { useInvoices } from '../src/hooks/useInvoices';
-import { useExpenses } from '../src/hooks/useExpenses';
+import { useInvoices, useDeleteInvoice } from '../src/hooks/useInvoices';
+import { useExpenses, useDeleteExpense } from '../src/hooks/useExpenses';
 import { useEmployees } from '../src/hooks/useEmployees';
 
 export const Accounting: React.FC = () => {
     const { data: invoices = [] } = useInvoices();
     const { data: expenses = [] } = useExpenses();
+    const deleteInvoiceMutation = useDeleteInvoice();
+    const deleteExpenseMutation = useDeleteExpense();
     const { coreAccounting, tvaEngine, refreshData, transactions, tvaJournal } = useDatabase();
     const [activeTab, setActiveTab] = useState<'declarations' | 'journal' | 'financial_engine'>('financial_engine');
     const [entries, setEntries] = useState<AccountingEntry[]>([]);
@@ -679,19 +681,34 @@ export const Accounting: React.FC = () => {
         const totalCredit = entries.reduce((acc, e) => acc + e.credit, 0);
         const isBalanced = Math.abs(totalDebit - totalCredit) < 0.001;
 
-        const handleReset = () => {
-            if (window.confirm('⚠️ Attention ! Cette action va supprimer toutes les écritures comptables et le journal TVA.\n\nLes factures et charges ne seront pas supprimées, mais devront être retraitées.\n\nVoulez-vous continuer ?')) {
-                // Clear entries
-                setEntries([]);
-                
-                // Clear singletons
-                coreAccounting.transactions = [];
-                tvaEngine.tvaJournal = [];
-                
-                // Refresh context data
-                refreshData();
-                
-                alert('✅ Remise à zéro effectuée avec succès !');
+        const handleReset = async () => {
+            if (window.confirm('⚠️ ATTENTION ! Cette action va DÉFINITIVEMENT supprimer :\n\n• Toutes les factures (' + invoices.length + ')\n• Toutes les charges (' + expenses.length + ')\n• Toutes les écritures comptables\n• Le journal TVA\n\nCette action est IRRÉVERSIBLE !\n\nVoulez-vous vraiment continuer ?')) {
+                try {
+                    // Delete all invoices
+                    for (const invoice of invoices) {
+                        await deleteInvoiceMutation.mutateAsync(invoice.id);
+                    }
+                    
+                    // Delete all expenses
+                    for (const expense of expenses) {
+                        await deleteExpenseMutation.mutateAsync(expense.id);
+                    }
+                    
+                    // Clear entries
+                    setEntries([]);
+                    
+                    // Clear singletons
+                    coreAccounting.transactions = [];
+                    tvaEngine.tvaJournal = [];
+                    
+                    // Refresh context data
+                    refreshData();
+                    
+                    alert('✅ Remise à zéro effectuée avec succès ! Toutes les données ont été supprimées de la base de données.');
+                } catch (error) {
+                    console.error('Erreur lors de la remise à zéro:', error);
+                    alert('❌ Erreur lors de la suppression des données. Veuillez réessayer.');
+                }
             }
         };
 

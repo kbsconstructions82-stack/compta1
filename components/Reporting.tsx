@@ -96,12 +96,12 @@ export const Reporting: React.FC = () => {
                             <div className="p-6 space-y-4">
                                 {/* Revenue */}
                                 <div className="border-b border-gray-200 pb-4">
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                         <div>
                                             <p className="text-sm text-gray-500 uppercase tracking-wide">Chiffre d'Affaires (Classe 7)</p>
                                             <p className="text-xs text-gray-400 mt-1">{invoices.filter(i => i.status !== InvoiceStatus.DRAFT && i.status !== InvoiceStatus.CANCELLED).length} factures validées</p>
                                         </div>
-                                        <span className="text-2xl font-bold text-green-600">{formatCurrency(pnl.turnover)}</span>
+                                        <span className="text-xl sm:text-2xl font-bold text-green-600 break-all">{formatCurrency(pnl.turnover)}</span>
                                     </div>
                                 </div>
 
@@ -149,12 +149,12 @@ export const Reporting: React.FC = () => {
                                 </div>
 
                                 {/* EBITDA */}
-                                <div className={`flex justify-between items-center p-4 rounded-xl ${pnl.ebitda >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                                <div className={`flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-4 rounded-xl ${pnl.ebitda >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                                     <div>
                                         <p className="text-sm font-bold uppercase tracking-wide text-gray-700">Résultat d'Exploitation (EBITDA)</p>
                                         <p className="text-xs text-gray-500 mt-1">Chiffre d'Affaires - Charges d'Exploitation</p>
                                     </div>
-                                    <span className={`text-3xl font-extrabold ${pnl.ebitda >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    <span className={`text-2xl sm:text-3xl font-extrabold break-all ${pnl.ebitda >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                                         {formatCurrency(pnl.ebitda)}
                                     </span>
                                 </div>

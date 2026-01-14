@@ -79,8 +79,8 @@ export const cleanupInvalidUUIDs = async () => {
     try {
         const allItems = await db.syncQueue.toArray();
         const invalidItems = allItems.filter(item => {
-            // Check if the data contains invalid UUID patterns
-            const dataStr = JSON.stringify(item.data);
+            // Check if the payload contains invalid UUID patterns
+            const dataStr = JSON.stringify(item.payload);
             // Look for patterns like "1768328552939-cick6ip" or "INV-1768328587327-9z3hknie4"
             const hasInvalidUUID = /"\d{13}-[a-z0-9]+"/i.test(dataStr) || /"INV-\d{13}-[a-z0-9]+"/i.test(dataStr);
             return hasInvalidUUID;

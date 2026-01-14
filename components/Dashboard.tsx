@@ -51,9 +51,9 @@ const StatCard = ({ title, value, subtext, icon: Icon, gradientClass, onClick }:
 );
 
 const DetailModal = ({ title, onClose, children, colorClass = "bg-white" }: any) => (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
         <div
-            className={`${colorClass} w-full lg:max-w-4xl max-h-[85vh] lg:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100`}
+            className={`${colorClass} w-full lg:max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100`}
             onClick={(e) => e.stopPropagation()}
         >
             <div className="p-4 lg:p-6 border-b border-gray-100 flex justify-between items-center bg-white/50 backdrop-blur-md flex-shrink-0">
