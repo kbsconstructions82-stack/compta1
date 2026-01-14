@@ -279,7 +279,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (driver.password) {
                     // Check if it's already a bcrypt hash
                     if (driver.password.startsWith('$2a$') || driver.password.startsWith('$2b$') || driver.password.startsWith('$2y$')) {
-                        isValid = bcrypt.compareSync(p, driver.password);
+                        // Use async version for better mobile compatibility
+                        try {
+                            isValid = await bcrypt.compare(p, driver.password);
+                        } catch (err) {
+                            console.error('[Auth] Bcrypt compare error:', err);
+                            // Fallback to sync version if async fails
+                            try {
+                                isValid = bcrypt.compareSync(p, driver.password);
+                            } catch (err2) {
+                                console.error('[Auth] Bcrypt compareSync also failed:', err2);
+                                isValid = false;
+                            }
+                        }
                     } else {
                         // Plain text check (Legacy / Self-Healing)
                         isValid = driver.password === p;
@@ -328,12 +340,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } else {
                     // Password is invalid
                     console.warn('[Auth] Password verification failed for driver:', driver.username || driver.email);
-                    throw new Error("Mot de passe incorrect.");
+                    console.log('[Auth] Hash type:', driver.password?.substring(0, 4), 'Length:', driver.password?.length);
+                    throw new Error("Mot de passe incorrect. Vérifiez vos identifiants et réessayez.");
                 }
             } else {
                 // Driver not found
                 console.warn('[Auth] Driver not found with username/email:', u);
-                throw new Error("Identifiant incorrect. Aucun salarié trouvé avec cet identifiant.");
+                throw new Error("Identifiant incorrect. Aucun salarié trouvé avec cet identifiant ou email.");
             }
 
             // This should never be reached, but just in case
