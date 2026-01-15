@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DriverState, TripRate, Vehicle, Expense, ExpenseCategory } from '../types';
 import { User, Truck, MapPin, Calendar, DollarSign, Activity, FileText, Save, Edit2, X, Settings, Plus, Receipt, CheckCircle } from 'lucide-react';
+import { MobileTableWrapper } from './MobileTableWrapper';
 import { useAuth } from '../src/hooks/useAuth';
 import { useEmployees, useUpdateEmployee } from '../src/hooks/useEmployees';
 import { useTripRates } from '../src/hooks/useTripRates';
@@ -45,7 +46,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
         tva_rate: 19,
         amount_ht: 0,
         tva_amount: 0,
-        amount_ttc: 0
+        amount_ttc: 0,
+        vehicle_matricule: driver?.vehicleMatricule || '' // Pré-remplir avec le véhicule du chauffeur
     });
     
     // Additional fields for specific expense types
@@ -227,7 +229,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                     tva_rate: 19,
                     amount_ht: 0,
                     tva_amount: 0,
-                    amount_ttc: 0
+                    amount_ttc: 0,
+                    vehicle_matricule: driver?.vehicleMatricule || ''
                 });
                 setExpiryDate('');
             },
@@ -390,7 +393,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                 </div>
 
                 {Object.keys(driverActivity).length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-100">
+                    <MobileTableWrapper>
+                        <table className="min-w-full divide-y divide-gray-100">
                         <thead className="bg-gray-50/50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
@@ -435,6 +439,7 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                             </tr>
                         </tfoot>
                     </table>
+                    </MobileTableWrapper>
                 ) : (
                     <div className="p-12 text-center">
                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
@@ -463,6 +468,15 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                 {/* Expense Form */}
                 {showExpenseForm && (
                     <div className="p-6 bg-gray-50 border-b border-gray-200">
+                        {/* Info véhicule automatique */}
+                        <div className="max-w-3xl mx-auto mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start">
+                            <Truck size={18} className="text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm">
+                                <p className="font-medium text-blue-900">Véhicule assigné : {driver?.vehicleMatricule || 'Aucun'}</p>
+                                <p className="text-blue-700 text-xs mt-0.5">Cette dépense sera automatiquement associée à votre véhicule.</p>
+                            </div>
+                        </div>
+                        
                         <div className="max-w-3xl mx-auto space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
