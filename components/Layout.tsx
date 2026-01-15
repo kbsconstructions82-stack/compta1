@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home, MapPin } from 'lucide-react';
+import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home, MapPin, Settings } from 'lucide-react';
 import { Tenant } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSwipe } from '../src/hooks/useTouchGestures';
+import { useAuth } from '../src/hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -85,7 +86,27 @@ const NavItem = ({ id, label, icon: Icon, active, onClick }: any) => (
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange, currentTenant, userRole, currentUser, onLogout }) => {
   const { language, setLanguage, t, dir } = useLanguage();
+  const { updateUserProfile } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    fullName: currentUser?.full_name || '',
+    email: currentUser?.email || '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  // Populate form with current user data when modal opens
+  useEffect(() => {
+    if (showSettingsModal && currentUser) {
+      setSettingsForm({
+        fullName: currentUser.fullName || currentUser.full_name || '',
+        email: currentUser.email || '',
+        password: '',
+        confirmPassword: ''
+      });
+    }
+  }, [showSettingsModal, currentUser]);
 
   // Gesture handlers pour swipe
   const swipeHandlers = useSwipe({
@@ -112,6 +133,59 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
       element.removeEventListener('touchend', swipeHandlers.onTouchEnd as any);
     };
   }, [mobileMenuOpen, swipeHandlers]);
+
+  // Handler pour sauvegarder les paramètres
+  const handleSaveSettings = async () => {
+    // Validate passwords if provided
+    if (settingsForm.password || settingsForm.confirmPassword) {
+      if (settingsForm.password !== settingsForm.confirmPassword) {
+        alert('Les mots de passe ne correspondent pas !');
+        return;
+      }
+      if (settingsForm.password.length < 6) {
+        alert('Le mot de passe doit contenir au moins 6 caractères');
+        return;
+      }
+    }
+
+    try {
+      const updates: any = {};
+      const hasPasswordChange = !!settingsForm.password;
+      
+      // Only include fields that have changed
+      if (settingsForm.fullName && settingsForm.fullName !== (currentUser?.fullName || currentUser?.full_name)) {
+        updates.fullName = settingsForm.fullName;
+      }
+      if (settingsForm.email && settingsForm.email !== currentUser?.email) {
+        updates.email = settingsForm.email;
+      }
+      if (settingsForm.password) {
+        updates.password = settingsForm.password;
+      }
+
+      // Only call API if there are changes
+      if (Object.keys(updates).length > 0) {
+        await updateUserProfile(updates);
+        
+        if (hasPasswordChange) {
+          alert('✅ Mot de passe mis à jour ! Vous allez être déconnecté pour vous reconnecter avec le nouveau mot de passe.');
+          setTimeout(() => {
+            onLogout(); // Force logout after password change
+          }, 1000);
+        } else {
+          alert('✅ Paramètres mis à jour avec succès sur Supabase !');
+        }
+      } else {
+        alert('Aucune modification détectée');
+      }
+      
+      setShowSettingsModal(false);
+      setSettingsForm({ fullName: '', email: '', password: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error('Erreur mise à jour:', error);
+      alert('❌ ' + (error.message || 'Erreur lors de la mise à jour du profil'));
+    }
+  };
 
   // Navigation items based on role
   const getNavItems = () => {
@@ -292,12 +366,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
                 <p className="text-sm font-bold text-gray-800 truncate">{currentUser?.full_name || currentTenant.name}</p>
                 <p className="text-xs text-indigo-600 font-medium">{userRole}</p>
               </div>
-              <button 
-                onClick={onLogout} 
-                className="ml-2 p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all hover:shadow-sm active:scale-95"
-              >
-                <LogOut size={18} />
-              </button>
+              <div className="flex gap-1">
+                {userRole === 'ADMIN' && (
+                  <button 
+                    onClick={() => setShowSettingsModal(true)} 
+                    className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all hover:shadow-sm active:scale-95"
+                    title="Paramètres"
+                  >
+                    <Settings size={18} />
+                  </button>
+                )}
+                <button 
+                  onClick={onLogout} 
+                  className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all hover:shadow-sm active:scale-95"
+                  title="Déconnexion"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -329,6 +415,99 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
           ))}
         </div>
       </nav>
+
+      {/* ===== SETTINGS MODAL ===== */}
+      {showSettingsModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          onClick={() => setShowSettingsModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Paramètres du profil</h2>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveSettings(); }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom complet
+                </label>
+                <input
+                  type="text"
+                  value={settingsForm.fullName}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, fullName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Jean Dupont"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={settingsForm.email}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="jean@exemple.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nouveau mot de passe
+                </label>
+                <input
+                  type="password"
+                  value={settingsForm.password}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Laisser vide pour ne pas changer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirmer le mot de passe
+                </label>
+                <input
+                  type="password"
+                  value={settingsForm.confirmPassword}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, confirmPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Confirmer le nouveau mot de passe"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

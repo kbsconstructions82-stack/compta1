@@ -24,6 +24,7 @@ import { DatabaseProvider } from './contexts/DatabaseContext';
 // New Imports
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { LoginScreen } from './src/components/auth/LoginScreen';
+import { ResetPasswordScreen } from './src/components/auth/ResetPasswordScreen';
 import { NetworkStatus } from './components/NetworkStatus';
 import { SyncQueueManager } from './components/SyncQueueManager';
 
@@ -34,7 +35,16 @@ import './src/utils/cleanupSyncQueue';
 // All data fetching and mutation hooks are removed as they are not used in AppContent directly.
 
 function AppContent() {
-  const { isAuthenticated, currentUser, login, logout, error: loginError, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, currentUser, login, logout, resetPassword, error: loginError, isLoading: authLoading } = useAuth();
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  
+  // Detect password reset URL from Supabase email link
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.get('type') === 'recovery') {
+      setShowResetPassword(true);
+    }
+  }, []);
   
   // Set default tab based on user role
   const getDefaultTab = () => {
@@ -139,8 +149,23 @@ function AppContent() {
     </div>;
   }
 
+  // Show Reset Password screen if user clicked email link
+  if (showResetPassword) {
+    return <ResetPasswordScreen 
+      onSuccess={() => {
+        setShowResetPassword(false);
+        window.location.hash = ''; // Clear hash
+        alert('✅ Mot de passe réinitialisé ! Connectez-vous avec votre nouveau mot de passe.');
+      }}
+      onCancel={() => {
+        setShowResetPassword(false);
+        window.location.hash = ''; // Clear hash
+      }}
+    />;
+  }
+
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={login} error={loginError} isLoading={authLoading && !loginError} />;
+    return <LoginScreen onLogin={login} onResetPassword={resetPassword} error={loginError} isLoading={authLoading && !loginError} />;
   }
 
   return (

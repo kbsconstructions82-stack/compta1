@@ -655,7 +655,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <StatCard
                     title={t('turnover')}
                     value={`${report.turnover.toLocaleString()} TND`}
-                    subtext={`${t('cumulEx')} 2024 (TTC)`}
+                    subtext={`${t('cumulEx')} 2026 (TTC)`}
                     icon={DollarSign}
                     gradientClass="grad-cyan"
                     onClick={() => setSelectedDetail('revenue')}
@@ -819,7 +819,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                             <h4 className="font-bold text-gray-800 text-sm">{chart.title}</h4>
                                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">{chart.subtitle}</p>
                                         </div>
-                                        <div className="text-xs font-bold bg-gray-50 px-2 py-0.5 rounded text-gray-600">
+                                        <div className="text-sm font-extrabold bg-indigo-600 text-white px-2.5 py-1 rounded shadow-md">
                                             {Number(chart.total).toLocaleString()}
                                         </div>
                                     </div>

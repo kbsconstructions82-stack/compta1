@@ -7,8 +7,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-k
 // The app will use localStorage/mock data when Supabase is not configured
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-        persistSession: false, // Disable session persistence in dev mode
-        autoRefreshToken: false,
+        persistSession: true, // Enable session persistence for auth operations
+        autoRefreshToken: true, // Auto refresh tokens
+        detectSessionInUrl: true, // Detect session from URL (for password reset)
     }
 });
 

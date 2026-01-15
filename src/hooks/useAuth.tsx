@@ -9,6 +9,8 @@ interface AuthContextType {
     currentUser: User | null;
     login: (u: string, p: string) => Promise<void>;
     logout: () => void;
+    updateUserProfile: (updates: { fullName?: string; email?: string; password?: string }) => Promise<void>;
+    resetPassword: (email: string) => Promise<void>;
     error: string | null;
     isLoading: boolean;
 }
@@ -359,6 +361,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const updateUserProfile = async (updates: { fullName?: string; email?: string; password?: string }) => {
+        if (!currentUser) {
+            throw new Error('Aucun utilisateur connecté');
+        }
+
+        console.log('[Auth] updateUserProfile called with:', { ...updates, password: updates.password ? '***' : undefined });
+
+        try {
+            // Update email and password in Supabase Auth if provided
+            if (isSupabaseConfigured() && currentUser.supabaseId) {
+                // Get current session first
+                const { data: { session } } = await supabase.auth.getSession();
+                console.log('[Auth] Current session:', session ? 'exists' : 'missing');
+
+                if (!session) {
+                    throw new Error('Aucune session active. Veuillez vous reconnecter.');
+                }
+
+                const authUpdates: any = {};
+                if (updates.email) authUpdates.email = updates.email;
+                if (updates.password) authUpdates.password = updates.password;
+
+                if (Object.keys(authUpdates).length > 0) {
+                    console.log('[Auth] Updating Supabase Auth user...');
+                    const { data, error: authError } = await supabase.auth.updateUser(authUpdates);
+                    
+                    if (authError) {
+                        console.error('[Auth] Auth update error:', authError);
+                        throw authError;
+                    }
+                    
+                    console.log('[Auth] Supabase Auth user updated successfully');
+                }
+
+                // Update user profile in database
+                if (updates.fullName || updates.email) {
+                    const profileUpdates: any = {};
+                    if (updates.fullName) profileUpdates.full_name = updates.fullName;
+                    if (updates.email) profileUpdates.email = updates.email;
+
+                    console.log('[Auth] Updating user_profiles table...');
+                    const { error: profileError } = await supabase
+                        .from('user_profiles')
+                        .update(profileUpdates)
+                        .eq('id', currentUser.supabaseId);
+
+                    if (profileError) {
+                        console.error('[Auth] Profile update error:', profileError);
+                        throw profileError;
+                    }
+                    
+                    console.log('[Auth] user_profiles updated successfully');
+                }
+            }
+
+            // Update local currentUser state
+            setCurrentUser(prev => prev ? {
+                ...prev,
+                fullName: updates.fullName || prev.fullName,
+                email: updates.email || prev.email,
+            } : null);
+
+            // Update localStorage for admin/driver sessions
+            const adminSession = localStorage.getItem('admin_session');
+            const driverSession = localStorage.getItem('driver_session');
+            
+            if (adminSession) {
+                const session = JSON.parse(adminSession);
+                if (updates.fullName) session.fullName = updates.fullName;
+                if (updates.email) session.email = updates.email;
+                localStorage.setItem('admin_session', JSON.stringify(session));
+            }
+            
+            if (driverSession) {
+                const session = JSON.parse(driverSession);
+                if (updates.fullName) session.fullName = updates.fullName;
+                if (updates.email) session.email = updates.email;
+                localStorage.setItem('driver_session', JSON.stringify(session));
+            }
+
+        } catch (err: any) {
+            console.error('[Auth] Update profile error:', err);
+            throw new Error(err.message || 'Erreur lors de la mise à jour du profil');
+        }
+    };
+
     const logout = async () => {
         if (isSupabaseConfigured()) {
             try {
@@ -373,8 +461,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(null);
     };
 
+    const resetPassword = async (email: string) => {
+        if (!isSupabaseConfigured()) {
+            throw new Error('Supabase n\'est pas configuré');
+        }
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+
+            if (error) throw error;
+        } catch (err: any) {
+            console.error('[Auth] Password reset error:', err);
+            throw new Error(err.message || 'Erreur lors de l\'envoi de l\'email de récupération');
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ isAuthenticated, currentUser, login, logout, error, isLoading }}>
+        <AuthContext.Provider value={{ isAuthenticated, currentUser, login, logout, updateUserProfile, resetPassword, error, isLoading }}>
             {children}
         </AuthContext.Provider>
     );

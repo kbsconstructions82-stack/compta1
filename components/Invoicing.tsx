@@ -134,7 +134,7 @@ export const Invoicing: React.FC = () => {
     const generateInvoiceNumber = () => {
         // In a real app, this comes from backend to ensure concurrency safety
         const count = invoices.filter(i => i.status !== InvoiceStatus.DRAFT).length;
-        return `FAC-2024-${(count + 1).toString().padStart(3, '0')}`;
+        return `FAC-2026-${(count + 1).toString().padStart(3, '0')}`;
     };
 
     const calculateInvoiceTotals = (invoice: Partial<Invoice>) => {
