@@ -1,10 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Battery, Clock, Truck, User, Play, Square, RefreshCw } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useTracking, useGPSTracking, TrackingPosition } from '../src/hooks/useTracking';
 import { useAuth } from '../src/hooks/useAuth';
 import { useEmployees } from '../src/hooks/useEmployees';
 import { useVehicles } from '../src/hooks/useVehicles';
 import { MobileTableWrapper, MobileCard, MobileCardRow } from './MobileTableWrapper';
+
+// Fix pour les icônes Leaflet avec Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 export const Tracking: React.FC = () => {
     const { currentUser } = useAuth();
@@ -117,27 +128,61 @@ export const Tracking: React.FC = () => {
             {/* Map View */}
             {viewMode === 'map' && !isLoading && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="h-[600px] bg-gray-100 flex items-center justify-center relative">
-                        {/* Placeholder pour la carte OpenStreetMap */}
-                        <div className="text-center p-8">
-                            <MapPin size={64} className="text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-xl font-bold text-gray-700 mb-2">Carte Interactive</h3>
-                            <p className="text-gray-500 mb-4">
-                                La carte OpenStreetMap sera affichée ici avec React Leaflet
-                            </p>
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto text-left">
-                                <p className="text-sm font-bold text-blue-800 mb-2">
-                                    📦 Installation requise :
-                                </p>
-                                <code className="text-xs bg-white p-2 rounded block">
-                                    npm install react-leaflet leaflet<br />
-                                    npm install -D @types/leaflet
-                                </code>
+                    <div className="h-[600px] relative">
+                        {positions.length > 0 ? (
+                            <MapContainer
+                                center={[positions[0].latitude, positions[0].longitude]}
+                                zoom={13}
+                                style={{ height: '100%', width: '100%' }}
+                            >
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                {positions.map((pos) => (
+                                    <Marker
+                                        key={pos.id}
+                                        position={[pos.latitude, pos.longitude]}
+                                    >
+                                        <Popup>
+                                            <div className="p-2">
+                                                <div className="font-bold text-gray-800 mb-1">
+                                                    {pos.driver_name || pos.driver_id}
+                                                </div>
+                                                {pos.vehicle_matricule && (
+                                                    <div className="text-sm text-gray-600 flex items-center gap-1">
+                                                        <Truck size={12} />
+                                                        {pos.vehicle_matricule}
+                                                    </div>
+                                                )}
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    {formatTimestamp(pos.timestamp || '')}
+                                                </div>
+                                                {pos.speed && pos.speed > 1 && (
+                                                    <div className="text-xs text-blue-600 mt-1">
+                                                        🚗 {pos.speed.toFixed(0)} km/h
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Popup>
+                                    </Marker>
+                                ))}
+                            </MapContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center bg-gray-50">
+                                <div className="text-center">
+                                    <MapPin size={48} className="text-gray-400 mx-auto mb-3" />
+                                    <p className="text-gray-500">Aucune position GPS disponible</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Les chauffeurs doivent activer leur GPS pour voir leurs positions
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Aperçu des positions */}
-                        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
+                        {positions.length > 0 && (
+                            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs z-[1000]">
                             <h4 className="font-bold text-gray-800 mb-3 text-sm">Positions Actives</h4>
                             <div className="space-y-2 max-h-[500px] overflow-y-auto">
                                 {positions.map((pos) => (
@@ -172,6 +217,7 @@ export const Tracking: React.FC = () => {
                                 ))}
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
             )}

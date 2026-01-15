@@ -1,5 +1,5 @@
 
-import { Invoice, Expense, AccountingEntry, InvoiceStatus, ExpenseCategory, ChartOfAccount } from '../types';
+import { Invoice, Expense, AccountingEntry, InvoiceStatus, ExpenseCategory, ChartOfAccount, DriverState } from '../types';
 import { calculatePayroll } from '../utils/taxUtils';
 import { MOCK_DRIVERS } from '../constants';
 
@@ -122,15 +122,19 @@ export const generateExpenseEntries = (expenses: Expense[]): AccountingEntry[] =
   return entries;
 };
 
-export const generatePayrollEntries = (month: string = new Date().toISOString().split('T')[0]): AccountingEntry[] => {
-  // Generates entries based on Mock Drivers for the current month
-  // Real implementation would take a 'Payroll' object list
+export const generatePayrollEntries = (employees: DriverState[], month: string = new Date().toISOString().split('T')[0]): AccountingEntry[] => {
+  // Generates entries based on real employees from database
   const entries: AccountingEntry[] = [];
   const label = "Paie Mensuelle - Chauffeurs";
 
-  MOCK_DRIVERS.forEach(driver => {
+  // Si aucun employé, retourner tableau vide (pas d'écritures de paie)
+  if (!employees || employees.length === 0) {
+    return entries;
+  }
+
+  employees.forEach(driver => {
     // Generate data on the fly
-    const payroll = calculatePayroll(driver.baseSalary, 'Married', driver.childrenCount);
+    const payroll = calculatePayroll(driver.baseSalary, driver.maritalStatus || 'Married', driver.childrenCount || 0);
 
     // 1. Debit 640 (Salaire Brut)
     entries.push(createEntry(month, 'OD', '640', `${label} (${driver.fullName})`, payroll.gross, 0, driver.id, 'PAYROLL'));
@@ -153,10 +157,10 @@ export const generatePayrollEntries = (month: string = new Date().toISOString().
 };
 
 // --- MAIN ENGINE ---
-export const runAccountingEngine = (invoices: Invoice[], expenses: Expense[]): AccountingEntry[] => {
+export const runAccountingEngine = (invoices: Invoice[], expenses: Expense[], employees: DriverState[] = []): AccountingEntry[] => {
   const invoiceEntries = generateInvoiceEntries(invoices);
   const expenseEntries = generateExpenseEntries(expenses);
-  const payrollEntries = generatePayrollEntries(); // Uses mock data internally
+  const payrollEntries = generatePayrollEntries(employees); // Uses real employees from database
 
   // Concatenate and sort by date
   return [...invoiceEntries, ...expenseEntries, ...payrollEntries].sort((a, b) =>

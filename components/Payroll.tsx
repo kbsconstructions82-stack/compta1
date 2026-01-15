@@ -4,6 +4,7 @@ import { getEmployeeRate, EMPLOYEE_RATES } from '../src/utils/tariffs';
 import { User, Info, MapPin, Edit2, Save, Plus, Trash2, Clock, X, CheckCircle, Settings, ChevronDown, Check } from 'lucide-react';
 import { DriverState, TripRate } from '../types';
 import { useEmployees, useAddEmployee, useDeleteEmployee } from '../src/hooks/useEmployees';
+import { useVehicles, useAddVehicle } from '../src/hooks/useVehicles';
 import { useTripRates, useUpdateTripRates } from '../src/hooks/useTripRates';
 import { useActivity, useUpdateActivity } from '../src/hooks/useActivity';
 import { DriverProfileContent } from './DriverProfile';
@@ -14,6 +15,9 @@ export const Payroll: React.FC = () => {
     const { data: employees = [] } = useEmployees();
     const addEmployeeMutation = useAddEmployee();
     const deleteEmployeeMutation = useDeleteEmployee();
+    
+    const { data: vehicles = [] } = useVehicles();
+    const addVehicleMutation = useAddVehicle();
 
     const { data: dbTripRates = [] } = useTripRates();
     const updateTripRatesMutation = useUpdateTripRates();
@@ -90,6 +94,15 @@ export const Payroll: React.FC = () => {
         });
     };
     const onUpdateActivity = (driverId: string, routeName: string, count: number) => updateActivityMutation.mutate({ driverId, routeName, count });
+    
+    // Initialiser les tarifs par défaut dans la base de données
+    const handleInitializeDefaultRates = () => {
+        if (!confirm(`⚠️ Cette action va synchroniser ${defaultTripRates.length} tarifs par défaut dans la base de données.\n\nContinuer ?`)) {
+            return;
+        }
+        
+        onUpdateTripRates(defaultTripRates);
+    };
 
 
     // --- STATE MANAGEMENT ---
@@ -268,7 +281,7 @@ export const Payroll: React.FC = () => {
     };
 
     // Employee Management
-    const handleSubmitNewEmployee = () => {
+    const handleSubmitNewEmployee = async () => {
         if (!newEmployee.fullName) {
             alert('⚠️ Veuillez remplir au moins le nom du salarié.');
             return;
@@ -288,37 +301,71 @@ export const Payroll: React.FC = () => {
             ...newEmployee
         } as DriverState;
 
-        onAddEmployee(driver, {
-            onSuccess: (createdEmployee: any) => {
-                setIsAddEmployeeOpen(false);
-
-                // Afficher un message de succès avec les identifiants si fournis
-                if (newEmployee.username && newEmployee.password) {
-                    alert(
-                        `✅ Salarié créé avec succès !\n\n` +
-                        `Nom: ${newEmployee.fullName}\n` +
-                        `Rôle: ${newEmployee.role}\n\n` +
-                        `🔐 IDENTIFIANTS DE CONNEXION:\n` +
-                        `Username: ${newEmployee.username}\n` +
-                        `Password: ${newEmployee.password}\n\n` +
-                        `⚠️ IMPORTANT: Communiquez ces identifiants au salarié. Ils seront nécessaires pour se connecter à l'application.`
-                    );
-                } else {
-                    alert(
-                        `✅ Salarié créé avec succès !\n\n` +
-                        `Nom: ${newEmployee.fullName}\n` +
-                        `Rôle: ${newEmployee.role}\n\n` +
-                        `⚠️ Aucun identifiant fourni. Le salarié ne pourra pas se connecter. Vous pouvez les ajouter plus tard en modifiant le salarié.`
-                    );
+        try {
+            // Créer l'employé
+            await addEmployeeMutation.mutateAsync(driver);
+            
+            // Si une immatriculation est fournie et que le véhicule n'existe pas, le créer
+            if (newEmployee.vehicleMatricule && newEmployee.vehicleMatricule.trim()) {
+                const existingVehicle = vehicles.find(v => 
+                    v.matricule.toLowerCase() === newEmployee.vehicleMatricule.toLowerCase()
+                );
+                
+                if (!existingVehicle) {
+                    // Créer automatiquement le véhicule avec seulement les champs obligatoires
+                    try {
+                        await addVehicleMutation.mutateAsync({
+                            id: '',
+                            matricule: newEmployee.vehicleMatricule.trim().toUpperCase(),
+                            type: 'Camion' as any,
+                            brand: 'À renseigner',
+                            model: 'À renseigner',
+                            chassis_number: 'N/A',
+                            purchase_date: new Date().toISOString().split('T')[0],
+                            purchase_price: 0,
+                            owner_id: '',
+                            insurance_expiry: new Date().toISOString().split('T')[0],
+                            vignette_expiry: new Date().toISOString().split('T')[0],
+                            technical_visit_expiry: new Date().toISOString().split('T')[0],
+                            mileage: 0,
+                            tenant_id: ''
+                        } as any);
+                    } catch (vehicleError: any) {
+                        console.warn('Erreur lors de la création du véhicule:', vehicleError);
+                        // Continue même si le véhicule n'a pas pu être créé
+                    }
                 }
-
-                // Reset form
-                setNewEmployee({ id: '', fullName: '', role: 'Chauffeur', baseSalary: 600, maritalStatus: 'Married', childrenCount: 0, cin: '', cnss_number: '', phone: '', email: '', vehicleMatricule: '', username: '', password: '' });
-            },
-            onError: (err: any) => {
-                alert(`❌ Erreur lors de la création du salarié: ${err.message || 'Erreur inconnue'}`);
             }
-        });
+            
+            setIsAddEmployeeOpen(false);
+
+            // Afficher un message de succès avec les identifiants si fournis
+            if (newEmployee.username && newEmployee.password) {
+                alert(
+                    `✅ Salarié créé avec succès !\n\n` +
+                    `Nom: ${newEmployee.fullName}\n` +
+                    `Rôle: ${newEmployee.role}\n` +
+                    (newEmployee.vehicleMatricule ? `🚗 Véhicule: ${newEmployee.vehicleMatricule.toUpperCase()} (ajouté au parc roulant)\n\n` : '\n') +
+                    `🔐 IDENTIFIANTS DE CONNEXION:\n` +
+                    `Username: ${newEmployee.username}\n` +
+                    `Password: ${newEmployee.password}\n\n` +
+                    `⚠️ IMPORTANT: Communiquez ces identifiants au salarié. Ils seront nécessaires pour se connecter à l'application.`
+                );
+            } else {
+                alert(
+                    `✅ Salarié créé avec succès !\n\n` +
+                    `Nom: ${newEmployee.fullName}\n` +
+                    `Rôle: ${newEmployee.role}\n` +
+                    (newEmployee.vehicleMatricule ? `🚗 Véhicule: ${newEmployee.vehicleMatricule.toUpperCase()} (ajouté au parc roulant)\n\n` : '\n') +
+                    `⚠️ Aucun identifiant fourni. Le salarié ne pourra pas se connecter. Vous pouvez les ajouter plus tard en modifiant le salarié.`
+                );
+            }
+
+            // Reset form
+            setNewEmployee({ id: '', fullName: '', role: 'Chauffeur', baseSalary: 600, maritalStatus: 'Married', childrenCount: 0, cin: '', cnss_number: '', phone: '', email: '', vehicleMatricule: '', username: '', password: '' });
+        } catch (err: any) {
+            alert(`❌ Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
+        }
     };
 
     const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -505,6 +552,30 @@ export const Payroll: React.FC = () => {
                         <Info size={16} className="mb-2 text-blue-600" />
                         Pointez la souris sur <strong>"Gérer Tarifs Trajets"</strong> pour afficher, modifier ou ajouter de nouvelles destinations et leurs primes fixes.
                     </div>
+                    
+                    {/* Bouton pour initialiser les tarifs */}
+                    {dbTripRates.length === 0 && (
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
+                            <div className="flex items-start gap-3">
+                                <div className="bg-amber-100 p-2 rounded-lg">
+                                    <Settings size={20} className="text-amber-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-amber-900 text-sm mb-1">⚠️ Tarifs non initialisés</h4>
+                                    <p className="text-xs text-amber-800 mb-3">
+                                        Aucun tarif n'est enregistré dans la base de données. Les primes de trajet ne peuvent pas être calculées.
+                                    </p>
+                                    <button
+                                        onClick={handleInitializeDefaultRates}
+                                        className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center shadow-sm transition-all"
+                                    >
+                                        <CheckCircle size={14} className="mr-2" />
+                                        Initialiser {defaultTripRates.length} Tarifs Par Défaut
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* RIGHT COLUMN: Employee Table & Payroll */}

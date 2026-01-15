@@ -53,6 +53,10 @@ export const Operations: React.FC = () => {
     const { data: tripRates = [] } = useTripRates();
     const { data: invoices = [] } = useInvoices(); // Pour générer le numéro de facture séquentiel
 
+    // Trouver le véhicule du chauffeur connecté
+    const currentDriver = employees.find(e => e.id === currentUser?.id);
+    const userVehicleId = vehicles.find(v => v.matricule === currentDriver?.vehicleMatricule)?.id || '';
+
     // --- MUTATIONS ---
     const addMissionMutation = useAddMission();
     const updateMissionMutation = useUpdateMission();

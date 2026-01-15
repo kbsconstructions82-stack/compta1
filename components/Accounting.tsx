@@ -21,6 +21,7 @@ import { useEmployees } from '../src/hooks/useEmployees';
 export const Accounting: React.FC = () => {
     const { data: invoices = [] } = useInvoices();
     const { data: expenses = [] } = useExpenses();
+    const { data: employees = [] } = useEmployees();
     const deleteInvoiceMutation = useDeleteInvoice();
     const deleteExpenseMutation = useDeleteExpense();
     const { coreAccounting, tvaEngine, refreshData, transactions, tvaJournal } = useDatabase();
@@ -34,19 +35,19 @@ export const Accounting: React.FC = () => {
 
     // Auto-generate accounting entries whenever invoices or expenses change
     useEffect(() => {
-        // Auto-generate entries from real data
-        const generatedEntries = runAccountingEngine(invoices, expenses);
+        // Auto-generate entries from real data (including employees for payroll)
+        const generatedEntries = runAccountingEngine(invoices, expenses, employees);
         setEntries(generatedEntries);
         
         // Refresh singleton data (transactions and TVA journal that were already recorded)
         refreshData();
-    }, [invoices, expenses]); // Re-run when data changes
+    }, [invoices, expenses, employees]); // Re-run when data changes
 
     const handleRunEngine = () => {
         setIsGenerating(true);
         refreshData(); // Refresh data from singletons
         setTimeout(() => {
-            const generatedEntries = runAccountingEngine(invoices, expenses);
+            const generatedEntries = runAccountingEngine(invoices, expenses, employees);
             setEntries(generatedEntries);
             setIsGenerating(false);
         }, 800);
@@ -694,17 +695,28 @@ export const Accounting: React.FC = () => {
                         await deleteExpenseMutation.mutateAsync(expense.id);
                     }
                     
-                    // Clear entries
+                    // Clear entries immediately
                     setEntries([]);
                     
                     // Clear singletons
                     coreAccounting.transactions = [];
                     tvaEngine.tvaJournal = [];
                     
+                    // Force a complete reload from the database
+                    // Wait a bit to ensure deletions are propagated
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Force refetch of invoices and expenses
+                    await deleteInvoiceMutation.reset();
+                    await deleteExpenseMutation.reset();
+                    
                     // Refresh context data
                     refreshData();
                     
                     alert('✅ Remise à zéro effectuée avec succès ! Toutes les données ont été supprimées de la base de données.');
+                    
+                    // Reload the page to ensure clean state
+                    window.location.reload();
                 } catch (error) {
                     console.error('Erreur lors de la remise à zéro:', error);
                     alert('❌ Erreur lors de la suppression des données. Veuillez réessayer.');

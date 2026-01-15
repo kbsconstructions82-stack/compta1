@@ -73,13 +73,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error, isLoad
                             )}
                         </button>
                     </div>
-                    <div className="mt-6 text-center">
-                        <p className="text-xs text-gray-500 mb-2">Mode développement</p>
-                        <p className="text-xs text-gray-400">
-                            Identifiants: <span className="font-mono font-bold text-indigo-600">admin</span> / <span className="font-mono font-bold text-indigo-600">admin</span>
-                        </p>
-                    </div>
-                    <div className="mt-4 text-center text-xs text-gray-400">
+                    <div className="mt-6 text-center text-xs text-gray-400">
                         &copy; 2024 MOMO Logistics Suite. All rights reserved.
                     </div>
                 </form>
