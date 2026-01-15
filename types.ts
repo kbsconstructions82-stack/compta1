@@ -229,6 +229,7 @@ export interface Vehicle {
   tacho_calibration_expiry?: string; // Chronotachygraphe
   mileage?: number; // Current Odometer
   image_url?: string; // Storage URL
+  driver_name?: string; // Nom du conducteur assigné (optionnel)
 }
 
 // 3. HR & Payroll
@@ -437,6 +438,9 @@ export interface DriverState {
   maritalStatus: 'Single' | 'Married';
   childrenCount: number;
   cin?: string;
+  cnss_number?: string;
+  phone?: string;
+  email?: string;
   vehicleMatricule?: string;
   username?: string;
   password?: string;

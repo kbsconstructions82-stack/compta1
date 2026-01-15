@@ -15,6 +15,7 @@ import { Reporting } from './components/Reporting';
 import { SecurityAudit } from './components/SecurityAudit';
 import { SaaSModule } from './components/SaaSModule';
 import { DriverProfile } from './components/DriverProfile';
+import { Tracking } from './components/Tracking';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { MOCK_TENANTS } from './constants';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -43,7 +44,7 @@ function AppContent() {
     return 'dashboard';
   };
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'invoicing' | 'accounting' | 'reports' | 'operations' | 'hr' | 'expenses' | 'schema' | 'security' | 'saas' | 'driver-profile'>(getDefaultTab());
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'invoicing' | 'accounting' | 'reports' | 'operations' | 'hr' | 'expenses' | 'schema' | 'security' | 'saas' | 'driver-profile' | 'tracking'>(getDefaultTab());
 
   // Reset activeTab when user logs in
   useEffect(() => {
@@ -108,6 +109,8 @@ function AppContent() {
         return <Payroll />;
       case 'expenses':
         return <Expenses />;
+      case 'tracking':
+        return <Tracking />;
       case 'security':
         return <SecurityAudit />;
       case 'saas':

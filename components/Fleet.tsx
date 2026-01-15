@@ -341,15 +341,30 @@ export const Fleet: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Kilométrage Actuel</label>
-                                <input
-                                    type="number"
-                                    className="w-full bg-white border border-gray-300 rounded-lg p-2.5 text-sm"
-                                    placeholder="0"
-                                    value={currentVehicle.mileage || ''}
-                                    onChange={e => setCurrentVehicle({ ...currentVehicle, mileage: Number(e.target.value) })}
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kilométrage Actuel</label>
+                                    <input
+                                        type="number"
+                                        className="w-full bg-white border border-gray-300 rounded-lg p-2.5 text-sm"
+                                        placeholder="0"
+                                        value={currentVehicle.mileage || ''}
+                                        onChange={e => setCurrentVehicle({ ...currentVehicle, mileage: Number(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Conducteur Assigné</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-white border border-gray-300 rounded-lg p-2.5 text-sm"
+                                        placeholder="Nom du conducteur"
+                                        value={currentVehicle.driver_name || ''}
+                                        onChange={e => setCurrentVehicle({ ...currentVehicle, driver_name: e.target.value })}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        💡 Lorsque vous créez un salarié chauffeur avec ce matricule, il sera automatiquement lié
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Row 3: Admin Data */}

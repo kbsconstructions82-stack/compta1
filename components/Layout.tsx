@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home } from 'lucide-react';
+import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home, MapPin } from 'lucide-react';
 import { Tenant } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSwipe } from '../src/hooks/useTouchGestures';
@@ -128,6 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
       { id: 'invoicing', label: 'Factures', icon: FileText },
       { id: 'expenses', label: 'Charges', icon: PieChart },
       { id: 'hr', label: 'RH', icon: Users },
+      { id: 'tracking', label: 'Suivi GPS', icon: MapPin },
     ];
   };
 

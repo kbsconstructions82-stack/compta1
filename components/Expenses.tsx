@@ -736,18 +736,25 @@ export const Expenses: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Matricule (Véhicule concerné)</label>
-                <select
-                  className="w-full border border-gray-300 rounded-md p-2 bg-white"
-                  value={newExpense.vehicle_id || ''}
-                  onChange={e => setNewExpense({ ...newExpense, vehicle_id: e.target.value || undefined })}
-                  disabled={userRole === 'CHAUFFEUR' && !!userVehicleId}
-                >
-                  <option value="">-- Sélectionner un Matricule --</option>
-                  {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.matricule} - {v.brand}</option>
-                  ))}
-                </select>
-                {newExpense.vehicle_id && (
+                {userRole === 'CHAUFFEUR' && userVehicleId ? (
+                  <div className="w-full bg-gray-100 border border-gray-300 text-gray-700 rounded-md p-2.5 text-sm font-medium">
+                    {vehicles.find(v => v.id === userVehicleId)?.matricule || 'Véhicule assigné'}
+                    {' - '}
+                    {vehicles.find(v => v.id === userVehicleId)?.brand || ''}
+                  </div>
+                ) : (
+                  <select
+                    className="w-full border border-gray-300 rounded-md p-2 bg-white"
+                    value={newExpense.vehicle_id || ''}
+                    onChange={e => setNewExpense({ ...newExpense, vehicle_id: e.target.value || undefined })}
+                  >
+                    <option value="">-- Sélectionner un Matricule --</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.matricule} - {v.brand}</option>
+                    ))}
+                  </select>
+                )}
+                {!userRole || userRole !== 'CHAUFFEUR' && newExpense.vehicle_id && (
                   <div className="mt-2 text-xs text-blue-600 flex items-center bg-blue-50 p-2 rounded">
                     <span className="font-bold mr-1">Destinataire:</span>
                     {getBeneficiaryInfo(newExpense.vehicle_id!, vehicles)?.name}

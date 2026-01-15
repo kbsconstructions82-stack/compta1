@@ -108,6 +108,13 @@ export const Operations: React.FC = () => {
         }
     }, [isPlanMissionModalOpen, userRole, currentUser?.id]);
 
+    // Auto-remplir le vehicleId pour les chauffeurs
+    useEffect(() => {
+        if (isPlanMissionModalOpen && userRole === 'CHAUFFEUR' && userVehicleId && newMissionForm.vehicleId !== userVehicleId) {
+            setNewMissionForm(prev => ({ ...prev, vehicleId: userVehicleId }));
+        }
+    }, [isPlanMissionModalOpen, userRole, userVehicleId]);
+
 
 
 
@@ -1546,16 +1553,27 @@ export const Operations: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>
-                                    <select
-                                        className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={newMissionForm.vehicleId}
-                                        onChange={(e) => setNewMissionForm({ ...newMissionForm, vehicleId: e.target.value })}
-                                    >
-                                        <option value="">Sélectionner...</option>
-                                        {vehicles.map(v => (
-                                            <option key={v.id} value={v.id}>{v.matricule}</option>
-                                        ))}
-                                    </select>
+                                    {userRole === 'CHAUFFEUR' && userVehicleId ? (
+                                        <div className="w-full bg-gray-100 border border-gray-300 text-gray-700 rounded-lg p-2.5 text-sm">
+                                            {vehicles.find(v => v.id === userVehicleId)?.matricule || 'Véhicule assigné'}
+                                        </div>
+                                    ) : (
+                                        <select
+                                            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={newMissionForm.vehicleId}
+                                            onChange={(e) => setNewMissionForm({ ...newMissionForm, vehicleId: e.target.value })}
+                                        >
+                                            <option value="">Sélectionner...</option>
+                                            {vehicles.map(v => (
+                                                <option key={v.id} value={v.id}>{v.matricule}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {userRole === 'CHAUFFEUR' && (
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            💡 Votre véhicule est automatiquement assigné
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>

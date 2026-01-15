@@ -65,7 +65,7 @@ export const Invoicing: React.FC = () => {
     const addClientMutation = useAddClient();
 
     const [showNewClientForm, setShowNewClientForm] = useState(false);
-    const [newClientData, setNewClientData] = useState({ name: '', matricule_fiscale: '', address: '' });
+    const [newClientData, setNewClientData] = useState({ name: '', matricule_fiscale: '', address: '', contact_phone: '', contact_email: '' });
 
     // Import Missions Modal
     const [isImportModalOpen, setImportModalOpen] = useState(false);
@@ -959,6 +959,22 @@ export const Invoicing: React.FC = () => {
                                             onChange={(e) => setNewClientData({ ...newClientData, address: e.target.value })}
                                         />
                                     </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input
+                                            type="tel"
+                                            placeholder="Téléphone"
+                                            className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                                            value={newClientData.contact_phone}
+                                            onChange={(e) => setNewClientData({ ...newClientData, contact_phone: e.target.value })}
+                                        />
+                                        <input
+                                            type="email"
+                                            placeholder="Email"
+                                            className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                                            value={newClientData.contact_email}
+                                            onChange={(e) => setNewClientData({ ...newClientData, contact_email: e.target.value })}
+                                        />
+                                    </div>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => {
@@ -968,14 +984,16 @@ export const Invoicing: React.FC = () => {
                                                         id: newId,
                                                         name: newClientData.name,
                                                         matricule_fiscale: newClientData.matricule_fiscale,
-                                                        address: newClientData.address
+                                                        address: newClientData.address,
+                                                        contact_phone: newClientData.contact_phone,
+                                                        contact_email: newClientData.contact_email
                                                     };
 
                                                     addClientMutation.mutate(newClient, {
                                                         onSuccess: () => {
                                                             alert("Client créé avec succès !");
                                                             setShowNewClientForm(false);
-                                                            setNewClientData({ name: '', matricule_fiscale: '', address: '' });
+                                                            setNewClientData({ name: '', matricule_fiscale: '', address: '', contact_phone: '', contact_email: '' });
                                                             // Auto-select the new client
                                                             setCurrentInvoice({ ...currentInvoice, client_id: newId, clientName: newClient.name });
                                                         },

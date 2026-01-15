@@ -115,6 +115,9 @@ export const Payroll: React.FC = () => {
         maritalStatus: 'Married',
         childrenCount: 0,
         cin: '',
+        cnss_number: '',
+        phone: '',
+        email: '',
         vehicleMatricule: '',
         username: '',
         password: ''
@@ -310,7 +313,7 @@ export const Payroll: React.FC = () => {
                 }
 
                 // Reset form
-                setNewEmployee({ id: '', fullName: '', role: 'Chauffeur', baseSalary: 600, maritalStatus: 'Married', childrenCount: 0, cin: '', vehicleMatricule: '', username: '', password: '' });
+                setNewEmployee({ id: '', fullName: '', role: 'Chauffeur', baseSalary: 600, maritalStatus: 'Married', childrenCount: 0, cin: '', cnss_number: '', phone: '', email: '', vehicleMatricule: '', username: '', password: '' });
             },
             onError: (err: any) => {
                 alert(`❌ Erreur lors de la création du salarié: ${err.message || 'Erreur inconnue'}`);
@@ -643,6 +646,42 @@ export const Payroll: React.FC = () => {
                                 <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
                                     value={newEmployee.fullName} onChange={e => setNewEmployee({ ...newEmployee, fullName: e.target.value })}
                                 />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">CIN</label>
+                                    <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
+                                        placeholder="Ex: 12345678"
+                                        value={newEmployee.cin || ''}
+                                        onChange={e => setNewEmployee({ ...newEmployee, cin: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro CNSS</label>
+                                    <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
+                                        placeholder="Ex: 123456789012"
+                                        value={newEmployee.cnss_number || ''}
+                                        onChange={e => setNewEmployee({ ...newEmployee, cnss_number: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                                    <input type="tel" className="w-full border border-gray-300 rounded-lg p-2"
+                                        placeholder="Ex: +216 20 123 456"
+                                        value={newEmployee.phone || ''}
+                                        onChange={e => setNewEmployee({ ...newEmployee, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <input type="email" className="w-full border border-gray-300 rounded-lg p-2"
+                                        placeholder="Ex: mohamed@email.com"
+                                        value={newEmployee.email || ''}
+                                        onChange={e => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                                    />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

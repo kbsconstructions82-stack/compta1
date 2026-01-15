@@ -137,11 +137,19 @@ export const useUpdateEmployee = () => {
         mutationFn: async (employee: DriverState) => {
             const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
             
-            // Password handling
+            // Password handling - Only hash if it's a new password (not already hashed)
             let passwordHash = null;
-             if ((employee as any).password) {
-                const salt = bcrypt.genSaltSync(10);
-                passwordHash = bcrypt.hashSync((employee as any).password, salt);
+            if ((employee as any).password) {
+                const pwd = (employee as any).password;
+                // Check if password is already a bcrypt hash (starts with $2a$, $2b$, or $2y$)
+                if (pwd.startsWith('$2a$') || pwd.startsWith('$2b$') || pwd.startsWith('$2y$')) {
+                    // Already hashed, don't re-hash
+                    passwordHash = pwd;
+                } else {
+                    // Plain text password, hash it
+                    const salt = bcrypt.genSaltSync(10);
+                    passwordHash = bcrypt.hashSync(pwd, salt);
+                }
             }
 
             const dbPayload = mapToDB(employee, tenantUUID, passwordHash);
