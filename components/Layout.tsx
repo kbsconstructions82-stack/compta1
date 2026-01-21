@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home, MapPin, Settings } from 'lucide-react';
+import { LayoutDashboard, Truck, FileText, Briefcase, Users, Calculator, PieChart, Database, BarChart2, Shield, Building, LogOut, Menu, X, Home, MapPin, Settings, Globe } from 'lucide-react';
 import { Tenant } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSwipe } from '../src/hooks/useTouchGestures';
@@ -191,18 +191,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
   const getNavItems = () => {
     if (userRole === 'CHAUFFEUR') {
       return [
-        { id: 'driver-profile', label: 'Profil', icon: Users },
-        { id: 'operations', label: 'Missions', icon: Briefcase },
-        { id: 'expenses', label: 'Frais', icon: PieChart },
+        { id: 'driver-profile', label: t('driverProfile'), icon: Users },
+        { id: 'operations', label: t('operations'), icon: Briefcase },
+        { id: 'expenses', label: t('expenses'), icon: PieChart },
       ];
     }
     return [
-      { id: 'dashboard', label: 'Accueil', icon: Home },
-      { id: 'operations', label: 'Missions', icon: Briefcase },
-      { id: 'invoicing', label: 'Factures', icon: FileText },
-      { id: 'expenses', label: 'Charges', icon: PieChart },
-      { id: 'hr', label: 'RH', icon: Users },
-      { id: 'tracking', label: 'Suivi GPS', icon: MapPin },
+      { id: 'dashboard', label: t('dashboard'), icon: Home },
+      { id: 'operations', label: t('operations'), icon: Briefcase },
+      { id: 'invoicing', label: t('invoicing'), icon: FileText },
+      { id: 'expenses', label: t('expenses'), icon: PieChart },
+      { id: 'hr', label: t('hr'), icon: Users },
+      { id: 'tracking', label: t('tracking'), icon: MapPin },
     ];
   };
 
@@ -236,12 +236,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
           </button>
 
           <div className="flex items-center space-x-2">
-            {/* Language Toggle - 3D Style */}
+            {/* Language Toggle - 3D Style avec drapeau */}
             <button
               onClick={() => setLanguage(language === 'fr' ? 'ar' : 'fr')}
-              className="px-4 py-2 text-sm font-bold bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center shadow-sm border border-gray-200/50 hover:shadow-md transition-all active:scale-95"
+              className="px-4 py-2 text-sm font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl min-h-[48px] min-w-[60px] flex items-center justify-center gap-2 shadow-lg border border-blue-400/50 hover:shadow-xl transition-all active:scale-95 hover:from-blue-600 hover:to-indigo-700"
+              title={language === 'fr' ? 'Changer vers Arabe' : 'تغيير إلى الفرنسية'}
             >
-              {language === 'fr' ? 'عربي' : 'FR'}
+              <Globe size={18} />
+              <span className="font-extrabold">{language === 'fr' ? 'ع' : 'FR'}</span>
             </button>
 
             {/* Logout Button - Premium Red */}
@@ -367,6 +369,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
                 <p className="text-xs text-indigo-600 font-medium">{userRole}</p>
               </div>
               <div className="flex gap-1">
+                {/* Language Toggle - Desktop */}
+                <button 
+                  onClick={() => setLanguage(language === 'fr' ? 'ar' : 'fr')}
+                  className="p-2.5 text-white bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl transition-all hover:shadow-md active:scale-95 flex items-center gap-1"
+                  title={language === 'fr' ? 'Changer vers Arabe' : 'تغيير إلى الفرنسية'}
+                >
+                  <Globe size={16} />
+                  <span className="text-xs font-bold">{language === 'fr' ? 'ع' : 'FR'}</span>
+                </button>
                 {userRole === 'ADMIN' && (
                   <button 
                     onClick={() => setShowSettingsModal(true)} 

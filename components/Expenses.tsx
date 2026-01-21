@@ -81,7 +81,8 @@ export const Expenses: React.FC = () => {
     tva_rate: 19,
     amount_ht: 0,
     tva_amount: 0,
-    amount_ttc: 0
+    amount_ttc: 0,
+    fuel_liters: undefined
   });
 
   // --- Calculations ---
@@ -246,6 +247,7 @@ export const Expenses: React.FC = () => {
           amount_ht: 0,
           tva_amount: 0,
           amount_ttc: 0,
+          fuel_liters: undefined,
           vehicle_id: userRole === 'CHAUFFEUR' && userVehicleId ? userVehicleId : undefined,
           attachment_url: undefined
         });
@@ -360,6 +362,7 @@ export const Expenses: React.FC = () => {
                 amount_ht: 0,
                 amount_ttc: 0,
                 is_deductible: true,
+                fuel_liters: undefined,
                 vehicle_id: userRole === 'CHAUFFEUR' && userVehicleId ? userVehicleId : undefined
               });
               setExpiryDate('');
@@ -510,6 +513,7 @@ export const Expenses: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur / Réf</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Affectation</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Litres</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (HT)</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TVA</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Montant (TTC)</th>
@@ -539,6 +543,13 @@ export const Expenses: React.FC = () => {
                           </div>
                         ) : (
                           <span className="text-gray-400 italic">Structure</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        {exp.category === ExpenseCategory.FUEL && exp.fuel_liters ? (
+                          <span className="text-orange-600 font-medium">{exp.fuel_liters.toFixed(2)} L</span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
@@ -798,6 +809,26 @@ export const Expenses: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Fuel Liters Field (Conditional - only for FUEL category) */}
+            {newExpense.category === ExpenseCategory.FUEL && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-orange-800 mb-2">
+                  ⛽ Quantité de Carburant (Litres)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full border border-orange-300 rounded-md p-2 bg-white"
+                  placeholder="ex: 50.5"
+                  value={newExpense.fuel_liters || ''}
+                  onChange={e => setNewExpense({ ...newExpense, fuel_liters: e.target.value ? Number(e.target.value) : undefined })}
+                />
+                <p className="text-xs text-orange-700 mt-1">
+                  Indiquez le nombre de litres pour suivre la consommation de carburant. Utile si vous avez un abonnement station-service.
+                </p>
+              </div>
+            )}
 
             {/* Expiry Date Field (Conditional) */}
             {requiresExpiryDate(newExpense.category as ExpenseCategory) && newExpense.vehicle_id && (

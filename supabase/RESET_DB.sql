@@ -157,6 +157,8 @@ CREATE TABLE expenses (
     is_deductible BOOLEAN DEFAULT TRUE,
     payment_status TEXT DEFAULT 'Unpaid',
     
+    fuel_liters NUMERIC DEFAULT NULL, -- Quantité de carburant en litres
+    
     attachment_url TEXT,
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

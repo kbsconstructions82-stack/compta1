@@ -32,6 +32,9 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
     // Check if current user is viewing their own profile as a driver
     const isDriverViewingOwnProfile = currentUser?.role === 'CHAUFFEUR' && targetId === currentUser?.id;
 
+    // Find the driver's vehicle
+    const driverVehicle = vehicles.find(v => v.matricule === driver?.vehicleMatricule);
+
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState<any>({});
@@ -47,7 +50,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
         amount_ht: 0,
         tva_amount: 0,
         amount_ttc: 0,
-        vehicle_matricule: driver?.vehicleMatricule || '' // Pré-remplir avec le véhicule du chauffeur
+        fuel_liters: undefined,
+        vehicle_id: driverVehicle?.id || undefined
     });
     
     // Additional fields for specific expense types
@@ -178,16 +182,15 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
             return;
         }
 
-        // Find the vehicle associated with the driver
-        const driverVehicle = vehicles.find(v => v.matricule === driver.vehicleMatricule);
-        if (!driverVehicle) {
-            alert("Erreur : Véhicule non trouvé dans le parc roulant.");
+        // Verify vehicle_id is set
+        if (!newExpense.vehicle_id) {
+            alert("Erreur : Aucun véhicule associé à votre profil.");
             return;
         }
 
         const expense: Expense = {
             ...newExpense,
-            vehicle_id: driverVehicle.id,
+            vehicle_id: newExpense.vehicle_id,
             driver_id: targetId
         } as Expense;
 
@@ -195,26 +198,31 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
         addExpenseMutation.mutate(expense, {
             onSuccess: () => {
                 // Update vehicle expiry dates if applicable
-                if (expiryDate && driverVehicle) {
-                    const updatedVehicle: Vehicle = { ...driverVehicle };
+                if (expiryDate && newExpense.vehicle_id) {
+                    const vehicleToUpdate = vehicles.find(v => v.id === newExpense.vehicle_id);
+                    if (vehicleToUpdate) {
+                        const updatedVehicle: Vehicle = { ...vehicleToUpdate };
                     
-                    if (newExpense.category === ExpenseCategory.INSURANCE) {
-                        updatedVehicle.insurance_expiry = expiryDate;
-                    } else if (newExpense.category === ExpenseCategory.TAXES) {
-                        updatedVehicle.vignette_expiry = expiryDate;
-                    } else if (newExpense.category === ExpenseCategory.MAINTENANCE && 
-                               newExpense.description?.toLowerCase().includes('visite technique')) {
-                        updatedVehicle.technical_visit_expiry = expiryDate;
-                    }
-
-                    updateVehicleMutation.mutate(updatedVehicle, {
-                        onSuccess: () => {
-                            alert("Dépense enregistrée et dates du véhicule mises à jour avec succès !");
-                        },
-                        onError: (error: any) => {
-                            alert("Dépense enregistrée, mais erreur lors de la mise à jour du véhicule : " + error.message);
+                        if (newExpense.category === ExpenseCategory.INSURANCE) {
+                            updatedVehicle.insurance_expiry = expiryDate;
+                        } else if (newExpense.category === ExpenseCategory.TAXES) {
+                            updatedVehicle.vignette_expiry = expiryDate;
+                        } else if (newExpense.category === ExpenseCategory.MAINTENANCE && 
+                                   newExpense.description?.toLowerCase().includes('visite technique')) {
+                            updatedVehicle.technical_visit_expiry = expiryDate;
                         }
-                    });
+
+                        updateVehicleMutation.mutate(updatedVehicle, {
+                            onSuccess: () => {
+                                alert("Dépense enregistrée et dates du véhicule mises à jour avec succès !");
+                            },
+                            onError: (error: any) => {
+                                alert("Dépense enregistrée, mais erreur lors de la mise à jour du véhicule : " + error.message);
+                            }
+                        });
+                    } else {
+                        alert("Dépense enregistrée avec succès !");
+                    }
                 } else {
                     alert("Dépense enregistrée avec succès !");
                 }
@@ -230,7 +238,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                     amount_ht: 0,
                     tva_amount: 0,
                     amount_ttc: 0,
-                    vehicle_matricule: driver?.vehicleMatricule || ''
+                    fuel_liters: undefined,
+                    vehicle_id: driverVehicle?.id || undefined
                 });
                 setExpiryDate('');
             },
@@ -240,9 +249,6 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
             }
         });
     };
-
-    // Find the driver's vehicle
-    const driverVehicle = vehicles.find(v => v.matricule === driver?.vehicleMatricule);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -351,37 +357,39 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                 )}
             </div>
 
-            {/* Income Dashboard */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Salaire de Base (TTC)</h3>
-                        <div className="p-2 bg-gray-100 rounded-lg text-gray-600"><DollarSign size={18} /></div>
+            {/* Income Dashboard - Visible seulement pour les admins */}
+            {!isDriverViewingOwnProfile && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-gray-500 text-sm font-medium">Salaire de Base (TTC)</h3>
+                            <div className="p-2 bg-gray-100 rounded-lg text-gray-600"><DollarSign size={18} /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-800">{driver.baseSalary} <span className="text-sm font-normal text-gray-400">TND</span></p>
+                        <p className="text-xs text-green-600 mt-2 flex items-center">
+                            <Activity size={12} className="mr-1" /> Fixe Mensuel
+                        </p>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{driver.baseSalary} <span className="text-sm font-normal text-gray-400">TND</span></p>
-                    <p className="text-xs text-green-600 mt-2 flex items-center">
-                        <Activity size={12} className="mr-1" /> Fixe Mensuel
-                    </p>
-                </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Primes Trajets (Est. TTC)</h3>
-                        <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><MapPin size={18} /></div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-gray-500 text-sm font-medium">Primes Trajets (Est. TTC)</h3>
+                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><MapPin size={18} /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-indigo-600">{variablePrime.toFixed(3)} <span className="text-sm font-normal text-indigo-300">TND</span></p>
+                        <p className="text-xs text-indigo-500 mt-2">Basé sur {totalTrips} voyages validés</p>
                     </div>
-                    <p className="text-3xl font-bold text-indigo-600">{variablePrime.toFixed(3)} <span className="text-sm font-normal text-indigo-300">TND</span></p>
-                    <p className="text-xs text-indigo-500 mt-2">Basé sur {totalTrips} voyages validés</p>
-                </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-gray-500 text-sm font-medium">Total Est. (TTC)</h3>
-                        <div className="p-2 bg-green-100 rounded-lg text-green-600"><DollarSign size={18} /></div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-gray-500 text-sm font-medium">Total Est. (TTC)</h3>
+                            <div className="p-2 bg-green-100 rounded-lg text-green-600"><DollarSign size={18} /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-green-700">{(driver.baseSalary + variablePrime).toFixed(3)} <span className="text-sm font-normal text-green-400">TND</span></p>
+                        <p className="text-xs text-gray-400 mt-2">Salaire + Primes</p>
                     </div>
-                    <p className="text-3xl font-bold text-green-700">{(driver.baseSalary + variablePrime).toFixed(3)} <span className="text-sm font-normal text-green-400">TND</span></p>
-                    <p className="text-xs text-gray-400 mt-2">Salaire + Primes</p>
                 </div>
-            </div>
+            )}
 
             {/* Monthly Activity Detail */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -398,9 +406,13 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                         <thead className="bg-gray-50/50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tarif (Prime TTC)</th>
+                                {!isDriverViewingOwnProfile && (
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tarif (Prime TTC)</th>
+                                )}
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nb Trajets</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total (TTC)</th>
+                                {!isDriverViewingOwnProfile && (
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total (TTC)</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -425,19 +437,25 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                                 return (
                                     <tr key={routeName} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{routeName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{price.toFixed(3)} TND</td>
+                                        {!isDriverViewingOwnProfile && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{price.toFixed(3)} TND</td>
+                                        )}
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-800 font-bold">{count as number}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-blue-600 font-bold">{totalRow.toFixed(3)} TND</td>
+                                        {!isDriverViewingOwnProfile && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-blue-600 font-bold">{totalRow.toFixed(3)} TND</td>
+                                        )}
                                     </tr>
                                 );
                             })}
                         </tbody>
-                        <tfoot className="bg-gray-50">
-                            <tr>
-                                <td colSpan={3} className="px-6 py-4 text-sm font-bold text-gray-600 text-right">Total Primes Variables (TTC)</td>
-                                <td className="px-6 py-4 text-sm font-bold text-indigo-600 text-right">{variablePrime.toFixed(3)} TND</td>
-                            </tr>
-                        </tfoot>
+                        {!isDriverViewingOwnProfile && (
+                            <tfoot className="bg-gray-50">
+                                <tr>
+                                    <td colSpan={3} className="px-6 py-4 text-sm font-bold text-gray-600 text-right">Total Primes Variables (TTC)</td>
+                                    <td className="px-6 py-4 text-sm font-bold text-indigo-600 text-right">{variablePrime.toFixed(3)} TND</td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                     </MobileTableWrapper>
                 ) : (
@@ -523,6 +541,26 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                                     onChange={e => setNewExpense({ ...newExpense, invoice_ref_supplier: e.target.value })}
                                 />
                             </div>
+
+                            {/* Fuel Liters Field (Conditional - only for FUEL category) */}
+                            {newExpense.category === ExpenseCategory.FUEL && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <label className="block text-sm font-medium text-blue-800 mb-2">
+                                        ⛽ Quantité de Carburant (Litres)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="w-full border border-blue-300 rounded-md p-2 bg-white"
+                                        placeholder="ex: 50.5"
+                                        value={newExpense.fuel_liters || ''}
+                                        onChange={e => setNewExpense({ ...newExpense, fuel_liters: e.target.value ? Number(e.target.value) : undefined })}
+                                    />
+                                    <p className="text-xs text-blue-700 mt-1">
+                                        Indiquez le nombre de litres pour suivre la consommation de carburant.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
@@ -679,7 +717,9 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
                                             tva_rate: 19,
                                             amount_ht: 0,
                                             tva_amount: 0,
-                                            amount_ttc: 0
+                                            amount_ttc: 0,
+                                            fuel_liters: undefined,
+                                            vehicle_id: driverVehicle?.id || undefined
                                         });
                                         setExpiryDate('');
                                     }}

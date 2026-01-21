@@ -336,6 +336,7 @@ export interface Expense {
   is_deductible: boolean; // For tax purposes
   payment_status: 'Paid' | 'Unpaid';
   attachment_url?: string;
+  fuel_liters?: number; // Quantity in liters for fuel expenses
   created_at?: string; // Timestamp for sorting
 }
 
