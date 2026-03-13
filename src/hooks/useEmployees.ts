@@ -29,7 +29,7 @@ const mapToApp = (e: any): DriverState => ({
     username: e.username,
 });
 
-const mapToDB = (employee: DriverState, tenantId: string, passwordHash?: string | null) => ({
+const mapToDB = (employee: DriverState, tenantId: string, passwordHash?: string | null, existingCreatedAt?: string) => ({
     id: employee.id,
     full_name: employee.fullName,
     role: employee.role || 'Chauffeur',
@@ -44,30 +44,39 @@ const mapToDB = (employee: DriverState, tenantId: string, passwordHash?: string 
     vehicle_matricule: (employee as any).vehicleMatricule || null,
     tenant_id: tenantId,
     cin: employee.cin || null,
+    created_at: existingCreatedAt || new Date().toISOString(),
 });
 
 export const useEmployees = () => {
     return useQuery({
         queryKey: ['employees'],
         queryFn: async () => {
-            // 1. Try Firestore if online
+            // Always load local data first (includes pending-sync items)
+            const localData = await db.drivers.toArray();
+
+            // Try Firestore if online
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const q = query(collection(firestoreDb, 'employees'), orderBy('created_at', 'desc'));
                     const snap = await getDocs(q);
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // 2. Update Local DB
-                    await db.drivers.bulkPut(data as Employee[]);
-                    return data.map(mapToApp);
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                    // Merge: remote data is source of truth, but keep local-only items (pending sync)
+                    const remoteIds = new Set(remoteData.map((d: any) => d.id));
+                    const localOnly = localData.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    // Update local DB with remote data
+                    await db.drivers.bulkPut(remoteData as Employee[]);
+                    return merged.map(mapToApp);
                 } catch (err) {
                     console.warn('Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            const localData = await db.drivers.toArray();
+            // Fallback to Dexie only
             return localData.map(mapToApp);
         },
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 2,
     });
 };
 
@@ -90,10 +99,7 @@ export const useAddEmployee = () => {
             const dbPayload = mapToDB(employeeWithId, tenantId, passwordHash);
 
             await db.drivers.put(dbPayload as any);
-            await addToSyncQueue('employees', 'CREATE', {
-                ...dbPayload,
-                created_at: new Date().toISOString(),
-            });
+            await addToSyncQueue('employees', 'CREATE', dbPayload);
             if (navigator.onLine) syncService.processQueue();
 
             return mapToApp(dbPayload);
@@ -124,7 +130,9 @@ export const useUpdateEmployee = () => {
                 }
             }
 
-            const dbPayload = mapToDB(employee, tenantId, passwordHash);
+            // Preserve existing created_at
+            const existing = await db.drivers.get(employee.id);
+            const dbPayload = mapToDB(employee, tenantId, passwordHash, (existing as any)?.created_at);
             await db.drivers.put(dbPayload as any);
             await addToSyncQueue('employees', 'UPDATE', dbPayload);
             if (navigator.onLine) syncService.processQueue();

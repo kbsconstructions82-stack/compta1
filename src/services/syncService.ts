@@ -25,6 +25,12 @@ export class SyncService {
         console.log('[SyncService] Starting sync process...');
 
         try {
+            // 0. Reset FAILED items so they can be retried (network may have recovered)
+            await db.syncQueue
+                .where('status')
+                .equals('FAILED')
+                .modify({ status: 'PENDING', retryCount: 0 });
+
             // 1. Get all pending items
             const pendingItems = await db.syncQueue
                 .where('status')
@@ -96,7 +102,7 @@ export class SyncService {
             console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
 
             // Increment retry count or mark FAILED
-            if (item.retryCount >= 3) {
+            if (item.retryCount >= 5) {
                 await db.syncQueue.update(item.id!, {
                     status: 'FAILED',
                     error: error.message || 'Unknown error'

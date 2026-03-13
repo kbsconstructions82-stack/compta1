@@ -230,6 +230,7 @@ export interface Vehicle {
   mileage?: number; // Current Odometer
   image_url?: string; // Storage URL
   driver_name?: string; // Nom du conducteur assigné (optionnel)
+  created_at?: string; // Timestamp for sorting/sync
 }
 
 // 3. HR & Payroll

@@ -16,22 +16,30 @@ export const useVehicles = () => {
     return useQuery({
         queryKey: ['vehicles'],
         queryFn: async () => {
-            // 1. Try Firestore if online
+            // Always load local data first (includes pending-sync items)
+            const localData = await db.trucks.toArray();
+
+            // Try Firestore if online
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const snap = await getDocs(collection(firestoreDb, 'vehicles'));
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Vehicle[];
-                    // 2. Update Local DB
-                    await db.trucks.bulkPut(data);
-                    return data;
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Vehicle[];
+
+                    // Merge: remote is source of truth, keep local-only pending items
+                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const localOnly = localData.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    await db.trucks.bulkPut(remoteData);
+                    return merged;
                 } catch (err) {
                     console.warn('Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            return db.trucks.toArray();
+            // Fallback to Dexie only
+            return localData;
         },
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 2,
     });
 };
 
@@ -42,15 +50,19 @@ export const useAddVehicle = () => {
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
             const { id, ...vehicleData } = vehicle;
+            const newId = (id && id.trim()) ? id : generateId();
             const payload: Vehicle = {
                 ...vehicleData,
-                id: (id && id.trim()) ? id : generateId(),
+                id: newId,
                 tenant_id: currentUser?.tenant_id || 'T001',
+                created_at: new Date().toISOString(),
             };
 
-            // Remove empty strings
+            // Remove empty strings (but NOT id and created_at)
             Object.keys(payload).forEach(key => {
-                if ((payload as any)[key] === '') delete (payload as any)[key];
+                if (key !== 'id' && key !== 'created_at' && (payload as any)[key] === '') {
+                    delete (payload as any)[key];
+                }
             });
 
             await db.trucks.put(payload);
@@ -71,7 +83,13 @@ export const useUpdateVehicle = () => {
 
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
-            const payload = { ...vehicle, tenant_id: currentUser?.tenant_id || 'T001' };
+            // Preserve existing created_at
+            const existing = await db.trucks.get(vehicle.id);
+            const payload = {
+                ...vehicle,
+                tenant_id: currentUser?.tenant_id || 'T001',
+                created_at: (existing as any)?.created_at || new Date().toISOString(),
+            };
             await db.trucks.put(payload);
             await addToSyncQueue('vehicles', 'UPDATE', payload);
             if (navigator.onLine) syncService.processQueue();
