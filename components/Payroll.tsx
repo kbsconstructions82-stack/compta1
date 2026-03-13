@@ -823,9 +823,8 @@ export const Payroll: React.FC = () => {
                                 </div>
                             </div>
                             
-                            {/* Boutons */}
                             <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200 pb-20">
-                                <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">
+                                <button onClick={() => setIsAddEmployeeOpen(false)} className="px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded-lg min-h-[48px]">
                                     Annuler
                                 </button>
                                 <button onClick={handleSubmitNewEmployee} className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm min-h-[48px]">

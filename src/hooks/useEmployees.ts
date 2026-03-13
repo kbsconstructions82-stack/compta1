@@ -4,7 +4,8 @@ import {
     collection,
     getDocs,
     doc,
-    updateDoc,
+    setDoc,
+    deleteDoc,
     query,
     orderBy,
     isFirebaseConfigured,
@@ -12,8 +13,7 @@ import {
 import { DriverState, Employee } from '../../types';
 import { useAuth } from './useAuth';
 import * as bcrypt from 'bcryptjs';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 // --- Helpers for Mapping ---
@@ -45,6 +45,7 @@ const mapToDB = (employee: DriverState, tenantId: string, passwordHash?: string 
     tenant_id: tenantId,
     cin: employee.cin || null,
     created_at: existingCreatedAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
 });
 
 export const useEmployees = () => {
@@ -61,7 +62,7 @@ export const useEmployees = () => {
                     const snap = await getDocs(q);
                     const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-                    // Merge: remote data is source of truth, but keep local-only items (pending sync)
+                    // Merge: remote is source of truth, keep local-only pending items
                     const remoteIds = new Set(remoteData.map((d: any) => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id));
                     const merged = [...remoteData, ...localOnly];
@@ -70,7 +71,7 @@ export const useEmployees = () => {
                     await db.drivers.bulkPut(remoteData as Employee[]);
                     return merged.map(mapToApp);
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useEmployees] Network fetch failed, falling back to local DB', err);
                 }
             }
             // Fallback to Dexie only
@@ -98,9 +99,22 @@ export const useAddEmployee = () => {
 
             const dbPayload = mapToDB(employeeWithId, tenantId, passwordHash);
 
+            // 1. Save to Dexie immediately (optimistic)
             await db.drivers.put(dbPayload as any);
-            await addToSyncQueue('employees', 'CREATE', dbPayload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'employees', tempId);
+                    await setDoc(docRef, dbPayload);
+                    console.log('[useEmployees] Employee saved to Firestore:', tempId);
+                } catch (err) {
+                    console.error('[useEmployees] Firestore write failed:', err);
+                    throw err; // Re-throw so the UI shows the error
+                }
+            } else {
+                console.warn('[useEmployees] Offline - employee saved locally only');
+            }
 
             return mapToApp(dbPayload);
         },
@@ -133,9 +147,23 @@ export const useUpdateEmployee = () => {
             // Preserve existing created_at
             const existing = await db.drivers.get(employee.id);
             const dbPayload = mapToDB(employee, tenantId, passwordHash, (existing as any)?.created_at);
+
+            // 1. Update Dexie immediately
             await db.drivers.put(dbPayload as any);
-            await addToSyncQueue('employees', 'UPDATE', dbPayload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'employees', employee.id);
+                    await setDoc(docRef, dbPayload, { merge: true });
+                    console.log('[useEmployees] Employee updated in Firestore:', employee.id);
+                } catch (err) {
+                    console.error('[useEmployees] Firestore update failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useEmployees] Offline - employee updated locally only');
+            }
 
             return employee;
         },
@@ -151,9 +179,20 @@ export const useDeleteEmployee = () => {
 
     return useMutation({
         mutationFn: async (id: string) => {
+            // 1. Delete from Dexie immediately
             await db.drivers.delete(id);
-            await addToSyncQueue('employees', 'DELETE', { id });
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Delete from Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'employees', id);
+                    await deleteDoc(docRef);
+                    console.log('[useEmployees] Employee deleted from Firestore:', id);
+                } catch (err) {
+                    console.error('[useEmployees] Firestore delete failed:', err);
+                    throw err;
+                }
+            }
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['employees'] });

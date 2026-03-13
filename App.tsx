@@ -26,7 +26,6 @@ import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { LoginScreen } from './src/components/auth/LoginScreen';
 import { ResetPasswordScreen } from './src/components/auth/ResetPasswordScreen';
 import { NetworkStatus } from './components/NetworkStatus';
-import { SyncQueueManager } from './components/SyncQueueManager';
 
 // Import cleanup utility (makes it available in browser console)
 import './src/utils/cleanupSyncQueue';
@@ -178,7 +177,6 @@ function AppContent() {
       onLogout={logout}
     >
       <NetworkStatus />
-      <SyncQueueManager />
       <PWAInstallPrompt />
       {renderContent()}
     </Layout>

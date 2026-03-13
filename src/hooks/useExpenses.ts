@@ -3,35 +3,44 @@ import {
     db as firestoreDb,
     collection,
     getDocs,
+    doc,
+    setDoc,
+    deleteDoc,
     query,
     orderBy,
     isFirebaseConfigured,
 } from '../lib/firebase';
 import { Expense } from '../../types';
 import { useAuth } from './useAuth';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 export const useExpenses = () => {
     return useQuery({
         queryKey: ['expenses'],
         queryFn: async () => {
-            // 1. Try to fetch from Firestore if online
+            // Always load local data first (includes pending-sync items)
+            const localData = await db.expenses.toArray();
+
+            // Try to fetch from Firestore if online
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const q = query(collection(firestoreDb, 'expenses'), orderBy('created_at', 'desc'));
                     const snap = await getDocs(q);
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Expense[];
-                    // 2. Update Local DB
-                    await db.expenses.bulkPut(data);
-                    return data;
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Expense[];
+
+                    // Merge: remote is source of truth, keep local-only items
+                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const localOnly = localData.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    await db.expenses.bulkPut(remoteData);
+                    return merged;
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useExpenses] Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            const localData = await db.expenses.toArray();
+            // Fallback to Dexie
             return localData.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
         },
     });
@@ -44,16 +53,32 @@ export const useAddExpense = () => {
     return useMutation({
         mutationFn: async (expense: Expense) => {
             const tempId = expense.id || generateId();
+            const now = new Date().toISOString();
             const payload = {
                 ...expense,
                 id: tempId,
                 tenant_id: currentUser?.tenant_id || 'T001',
-                created_at: expense.created_at || new Date().toISOString(),
+                created_at: expense.created_at || now,
+                updated_at: now,
             };
 
+            // 1. Save to Dexie immediately (optimistic)
             await db.expenses.put(payload);
-            await addToSyncQueue('expenses', 'CREATE', payload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'expenses', tempId);
+                    await setDoc(docRef, payload);
+                    console.log('[useExpenses] Expense saved to Firestore:', tempId);
+                } catch (err) {
+                    console.error('[useExpenses] Firestore write failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useExpenses] Offline - expense saved locally only');
+            }
+
             return payload;
         },
         onSuccess: async () => {
@@ -69,10 +94,31 @@ export const useUpdateExpense = () => {
 
     return useMutation({
         mutationFn: async (expense: Expense) => {
-            const payload = { ...expense, tenant_id: currentUser?.tenant_id || 'T001' };
+            const existing = await db.expenses.get(expense.id) as any;
+            const payload = {
+                ...expense,
+                tenant_id: currentUser?.tenant_id || 'T001',
+                created_at: existing?.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+
+            // 1. Update Dexie immediately
             await db.expenses.put(payload);
-            await addToSyncQueue('expenses', 'UPDATE', payload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'expenses', expense.id);
+                    await setDoc(docRef, payload, { merge: true });
+                    console.log('[useExpenses] Expense updated in Firestore:', expense.id);
+                } catch (err) {
+                    console.error('[useExpenses] Firestore update failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useExpenses] Offline - expense updated locally only');
+            }
+
             return payload;
         },
         onSuccess: async () => {
@@ -84,11 +130,23 @@ export const useUpdateExpense = () => {
 
 export const useDeleteExpense = () => {
     const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: async (id: string) => {
+            // 1. Delete from Dexie immediately
             await db.expenses.delete(id);
-            await addToSyncQueue('expenses', 'DELETE', { id });
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Delete from Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'expenses', id);
+                    await deleteDoc(docRef);
+                    console.log('[useExpenses] Expense deleted from Firestore:', id);
+                } catch (err) {
+                    console.error('[useExpenses] Firestore delete failed:', err);
+                    throw err;
+                }
+            }
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['expenses'] });

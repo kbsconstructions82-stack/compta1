@@ -360,10 +360,9 @@ export const Expenses: React.FC = () => {
                 category: ExpenseCategory.FUEL,
                 tva_rate: 19,
                 amount_ht: 0,
-                amount_ttc: 0,
                 is_deductible: true,
                 fuel_liters: undefined,
-                vehicle_id: userRole === 'CHAUFFEUR' && userVehicleId ? userVehicleId : undefined
+                vehicle_id: (userRole as string) === 'CHAUFFEUR' && userVehicleId ? userVehicleId : undefined
               });
               setExpiryDate('');
               setViewMode('form');

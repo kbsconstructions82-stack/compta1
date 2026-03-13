@@ -7,8 +7,7 @@ import {
     setDoc,
     isFirebaseConfigured,
 } from '../lib/firebase';
-import { db, addToSyncQueue, DriverActivity } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db, DriverActivity } from '../lib/db';
 
 export const useActivity = () => {
     return useQuery({
@@ -66,15 +65,9 @@ export const useUpdateActivity = () => {
             // 2. In Firestore, use a deterministic ID based on driver + route for upsert behavior
             const docId = `${driverId}_${routeName.replace(/[^a-zA-Z0-9]/g, '_')}`;
             if (navigator.onLine && isFirebaseConfigured()) {
-                try {
-                    await setDoc(doc(firestoreDb, 'driver_activities', docId), payload, { merge: true });
-                } catch (err) {
-                    console.warn('Firestore upsert failed, adding to sync queue', err);
-                    await addToSyncQueue('driver_activities', 'UPSERT', { ...payload, id: docId });
-                }
+                await setDoc(doc(firestoreDb, 'driver_activities', docId), payload, { merge: true });
             } else {
-                await addToSyncQueue('driver_activities', 'UPSERT', { ...payload, id: docId });
-                if (navigator.onLine) syncService.processQueue();
+                throw new Error("Impossible d'enregistrer l'activité hors ligne");
             }
         },
         onSuccess: () => {

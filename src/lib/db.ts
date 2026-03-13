@@ -57,14 +57,4 @@ export class MomoDB extends Dexie {
 
 export const db = new MomoDB();
 
-// Helper to add to sync queue
-export const addToSyncQueue = async (table: string, action: 'CREATE' | 'UPDATE' | 'DELETE' | 'UPSERT', payload: any) => {
-    await db.syncQueue.add({
-        table,
-        action,
-        payload,
-        timestamp: Date.now(),
-        retryCount: 0,
-        status: 'PENDING'
-    });
-};
+

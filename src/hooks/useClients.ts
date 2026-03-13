@@ -3,6 +3,8 @@ import {
     db as firestoreDb,
     collection,
     getDocs,
+    doc,
+    setDoc,
     query,
     orderBy,
     where,
@@ -10,15 +12,16 @@ import {
 } from '../lib/firebase';
 import { Company } from '../../types';
 import { useAuth } from './useAuth';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 export const useClients = () => {
     return useQuery({
         queryKey: ['clients'],
         queryFn: async () => {
-            // 1. Try Firestore if online
+            const localData = await db.companies.where('is_client').equals(1 as any).toArray() || await db.companies.toArray();
+            let clientsLocal = localData.filter(c => c.is_client) as Company[];
+
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const q = query(
@@ -27,18 +30,21 @@ export const useClients = () => {
                         orderBy('name', 'asc')
                     );
                     const snap = await getDocs(q);
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Company[];
-                    // 2. Update Local DB
-                    await db.companies.bulkPut(data);
-                    return data;
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Company[];
+
+                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const localOnly = clientsLocal.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    await db.companies.bulkPut(remoteData);
+                    return merged.sort((a, b) => a.name.localeCompare(b.name));
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useClients] Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            const localData = await db.companies.where('is_client').equals(true as any).toArray();
-            return localData.sort((a, b) => a.name.localeCompare(b.name));
+            return clientsLocal.sort((a, b) => a.name.localeCompare(b.name));
         },
+        staleTime: 1000 * 60 * 2,
     });
 };
 
@@ -49,6 +55,7 @@ export const useAddClient = () => {
     return useMutation({
         mutationFn: async (client: Partial<Company>) => {
             const tempId = client.id || generateId();
+            const now = new Date().toISOString();
             const newClient = {
                 ...client,
                 id: tempId,
@@ -60,16 +67,31 @@ export const useAddClient = () => {
                 is_supplier: client.is_supplier || false,
                 contact_email: client.contact_email || '',
                 contact_phone: client.contact_phone || '',
+                created_at: now,
+                updated_at: now,
             } as Company;
 
+            // 1. Save locally
             await db.companies.put(newClient);
-            await addToSyncQueue('companies', 'CREATE', newClient);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write to Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'companies', tempId);
+                    await setDoc(docRef, newClient);
+                    console.log('[useClients] Client saved to Firestore:', tempId);
+                } catch (err) {
+                    console.error('[useClients] Firestore write failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useClients] Offline - client saved locally only');
+            }
+
             return newClient;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['clients'] });
-            await queryClient.refetchQueries({ queryKey: ['clients'] });
         },
     });
 };

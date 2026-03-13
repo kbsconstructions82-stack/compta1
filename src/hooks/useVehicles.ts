@@ -3,13 +3,16 @@ import {
     db as firestoreDb,
     collection,
     getDocs,
+    doc,
+    setDoc,
+    deleteDoc,
     query,
+    orderBy,
     isFirebaseConfigured,
 } from '../lib/firebase';
 import { Vehicle } from '../../types';
 import { useAuth } from './useAuth';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 export const useVehicles = () => {
@@ -25,15 +28,16 @@ export const useVehicles = () => {
                     const snap = await getDocs(collection(firestoreDb, 'vehicles'));
                     const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Vehicle[];
 
-                    // Merge: remote is source of truth, keep local-only pending items
+                    // Merge: remote is source of truth, but keep local-only pending items
                     const remoteIds = new Set(remoteData.map(d => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id));
                     const merged = [...remoteData, ...localOnly];
 
+                    // Update local cache
                     await db.trucks.bulkPut(remoteData);
                     return merged;
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useVehicles] Network fetch failed, falling back to local DB', err);
                 }
             }
             // Fallback to Dexie only
@@ -49,31 +53,48 @@ export const useAddVehicle = () => {
 
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
-            const { id, ...vehicleData } = vehicle;
-            const newId = (id && id.trim()) ? id : generateId();
-            const payload: Vehicle = {
-                ...vehicleData,
+            const newId = generateId();
+            const now = new Date().toISOString();
+            const payload: any = {
+                ...vehicle,
                 id: newId,
                 tenant_id: currentUser?.tenant_id || 'T001',
-                created_at: new Date().toISOString(),
+                created_at: now,
+                updated_at: now,
             };
 
-            // Remove empty strings (but NOT id and created_at)
+            // Remove empty string values (but keep id and timestamps)
             Object.keys(payload).forEach(key => {
-                if (key !== 'id' && key !== 'created_at' && (payload as any)[key] === '') {
-                    delete (payload as any)[key];
+                if (!['id', 'created_at', 'updated_at', 'tenant_id'].includes(key) && payload[key] === '') {
+                    delete payload[key];
                 }
             });
 
+            // 1. Save to Dexie immediately (optimistic)
             await db.trucks.put(payload);
-            await addToSyncQueue('vehicles', 'CREATE', payload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'vehicles', newId);
+                    await setDoc(docRef, payload);
+                    console.log('[useVehicles] Vehicle saved to Firestore:', newId);
+                } catch (err) {
+                    console.error('[useVehicles] Firestore write failed:', err);
+                    throw err; // Re-throw so the UI shows the error
+                }
+            } else {
+                console.warn('[useVehicles] Offline - vehicle saved locally only');
+            }
+
             return payload;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-            await queryClient.refetchQueries({ queryKey: ['vehicles'] });
         },
+        onError: (err) => {
+            console.error('[useVehicles] useAddVehicle error:', err);
+        }
     });
 };
 
@@ -84,35 +105,61 @@ export const useUpdateVehicle = () => {
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
             // Preserve existing created_at
-            const existing = await db.trucks.get(vehicle.id);
-            const payload = {
+            const existing = await db.trucks.get(vehicle.id) as any;
+            const payload: any = {
                 ...vehicle,
                 tenant_id: currentUser?.tenant_id || 'T001',
-                created_at: (existing as any)?.created_at || new Date().toISOString(),
+                created_at: existing?.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             };
+
+            // 1. Update Dexie immediately (optimistic)
             await db.trucks.put(payload);
-            await addToSyncQueue('vehicles', 'UPDATE', payload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write directly to Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'vehicles', vehicle.id);
+                    await setDoc(docRef, payload, { merge: true });
+                    console.log('[useVehicles] Vehicle updated in Firestore:', vehicle.id);
+                } catch (err) {
+                    console.error('[useVehicles] Firestore update failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useVehicles] Offline - vehicle updated locally only');
+            }
+
             return payload;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-            await queryClient.refetchQueries({ queryKey: ['vehicles'] });
         },
     });
 };
 
 export const useDeleteVehicle = () => {
     const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: async (id: string) => {
+            // 1. Delete from Dexie immediately
             await db.trucks.delete(id);
-            await addToSyncQueue('vehicles', 'DELETE', { id });
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Delete from Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'vehicles', id);
+                    await deleteDoc(docRef);
+                    console.log('[useVehicles] Vehicle deleted from Firestore:', id);
+                } catch (err) {
+                    console.error('[useVehicles] Firestore delete failed:', err);
+                    throw err;
+                }
+            }
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-            await queryClient.refetchQueries({ queryKey: ['vehicles'] });
         }
     });
 };

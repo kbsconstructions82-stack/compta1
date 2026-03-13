@@ -3,14 +3,16 @@ import {
     db as firestoreDb,
     collection,
     getDocs,
+    doc,
+    setDoc,
+    deleteDoc,
     query,
     orderBy,
     isFirebaseConfigured,
 } from '../lib/firebase';
 import { Mission, MissionStatus } from '../../types';
 import { useAuth } from './useAuth';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 // --- HELPER: Map Firestore doc to App type ---
@@ -46,7 +48,7 @@ const mapMissionFromDB = (m: any): Mission => ({
 });
 
 // --- HELPER: Map App type to Firestore doc ---
-const mapMissionToDB = (mission: Mission, tenantId: string) => {
+const mapMissionToDB = (mission: Mission, tenantId: string, existingCreatedAt?: string) => {
     const defaultClient = 'NEW BOX TUNISIA';
     const missionClient = (mission.client && mission.client.trim() !== '' && mission.client !== 'Client')
         ? mission.client.trim()
@@ -67,9 +69,10 @@ const mapMissionToDB = (mission: Mission, tenantId: string) => {
         price_ht: mission.price,
         tenant_id: tenantId,
         waybill_number: mission.waybill_number || null,
-        waybill_date: (mission.waybill_date || mission.waybill_date) || null,
+        waybill_date: (mission.waybill_date || mission.waybillDate) || null,
         piece_number: mission.piece_number || mission.pieceNumber || null,
-        created_at: new Date().toISOString(),
+        created_at: existingCreatedAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
     };
 };
 
@@ -77,23 +80,29 @@ export const useMissions = () => {
     return useQuery({
         queryKey: ['missions'],
         queryFn: async () => {
-            // 1. Try Firestore if online
+            // Always load local data first
+            const localData = await db.missions.toArray();
+
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const q = query(collection(firestoreDb, 'missions'), orderBy('created_at', 'desc'));
                     const snap = await getDocs(q);
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    await db.missions.bulkPut(data as any);
-                    return data.map(mapMissionFromDB);
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    
+                    // Merge local pending items with remote
+                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const localOnly = localData.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    await db.missions.bulkPut(remoteData as any);
+                    return merged.map(mapMissionFromDB);
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useMissions] Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            const localData = await db.missions.toArray();
             return localData.map(m => mapMissionFromDB(m));
         },
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 2,
     });
 };
 
@@ -108,14 +117,27 @@ export const useAddMission = () => {
             const missionWithId = { ...mission, id: tempId };
             const dbPayload = mapMissionToDB(missionWithId, tenantId);
 
+            // 1. Save locally
             await db.missions.put(dbPayload as any);
-            await addToSyncQueue('missions', 'CREATE', dbPayload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write to Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'missions', tempId);
+                    await setDoc(docRef, dbPayload);
+                    console.log('[useMissions] Mission saved to Firestore:', tempId);
+                } catch (err) {
+                    console.error('[useMissions] Firestore write failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useMissions] Offline - mission saved locally only');
+            }
+
             return missionWithId;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['missions'] });
-            await queryClient.refetchQueries({ queryKey: ['missions'] });
         },
     });
 };
@@ -127,15 +149,56 @@ export const useUpdateMission = () => {
     return useMutation({
         mutationFn: async (mission: Mission) => {
             const tenantId = currentUser?.tenant_id || 'T001';
-            const dbPayload = mapMissionToDB(mission, tenantId);
+            const existing = await db.missions.get(mission.id);
+            const dbPayload = mapMissionToDB(mission, tenantId, (existing as any)?.created_at);
+            
+            // 1. Save locally
             await db.missions.put(dbPayload as any);
-            await addToSyncQueue('missions', 'UPDATE', dbPayload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write to Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'missions', mission.id);
+                    await setDoc(docRef, dbPayload, { merge: true });
+                    console.log('[useMissions] Mission updated in Firestore:', mission.id);
+                } catch (err) {
+                    console.error('[useMissions] Firestore update failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useMissions] Offline - mission updated locally only');
+            }
+
             return mission;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['missions'] });
-            await queryClient.refetchQueries({ queryKey: ['missions'] });
+        }
+    });
+};
+
+export const useDeleteMission = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            // 1. Save locally
+            await db.missions.delete(id);
+
+            // 2. Delete from Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'missions', id);
+                    await deleteDoc(docRef);
+                    console.log('[useMissions] Mission deleted from Firestore:', id);
+                } catch (err) {
+                    console.error('[useMissions] Firestore delete failed:', err);
+                    throw err;
+                }
+            }
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['missions'] });
         }
     });
 };

@@ -698,10 +698,6 @@ export const Accounting: React.FC = () => {
                     // Clear entries immediately
                     setEntries([]);
                     
-                    // Clear singletons
-                    coreAccounting.transactions = [];
-                    tvaEngine.tvaJournal = [];
-                    
                     // Force a complete reload from the database
                     // Wait a bit to ensure deletions are propagated
                     await new Promise(resolve => setTimeout(resolve, 500));

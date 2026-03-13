@@ -5,7 +5,6 @@ import {
     getDocs,
     doc,
     setDoc,
-    updateDoc,
     deleteDoc,
     query,
     orderBy,
@@ -13,8 +12,7 @@ import {
 } from '../lib/firebase';
 import { Invoice } from '../../types';
 import { useAuth } from './useAuth';
-import { db, addToSyncQueue } from '../lib/db';
-import { syncService } from '../services/syncService';
+import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
 // Helper to map Firestore document to Application Type
@@ -41,7 +39,7 @@ const mapToApp = (row: any): Invoice => ({
 });
 
 // Helper to map Application Type to Firestore document
-const mapToDB = (invoice: Invoice, tenantId?: string) => ({
+const mapToDB = (invoice: Invoice, tenantId?: string, existingCreatedAt?: string) => ({
     id: invoice.id,
     number: invoice.number,
     client_id: invoice.client_id,
@@ -61,31 +59,35 @@ const mapToDB = (invoice: Invoice, tenantId?: string) => ({
     net_to_pay: invoice.net_to_pay,
     attachment_url: invoice.attachment_url,
     ...(tenantId ? { tenant_id: tenantId } : {}),
-    created_at: new Date().toISOString(),
+    created_at: existingCreatedAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
 });
 
 export const useInvoices = () => {
     return useQuery({
         queryKey: ['invoices'],
         queryFn: async () => {
-            // 1. Try to fetch from Firestore if online
+            const localData = await db.invoices.toArray();
+
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const q = query(collection(firestoreDb, 'invoices'), orderBy('created_at', 'desc'));
                     const snap = await getDocs(q);
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    // 2. Update Local DB (Cache)
-                    await db.invoices.bulkPut(data as any);
-                    return data.map(mapToApp);
+                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    
+                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const localOnly = localData.filter(l => !remoteIds.has(l.id));
+                    const merged = [...remoteData, ...localOnly];
+
+                    await db.invoices.bulkPut(remoteData as any);
+                    return merged.map(mapToApp);
                 } catch (err) {
-                    console.warn('Network fetch failed, falling back to local DB', err);
+                    console.warn('[useInvoices] Network fetch failed, falling back to local DB', err);
                 }
             }
-            // 3. Fallback to Dexie
-            const localData = await db.invoices.toArray();
             return localData.map(mapToApp).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         },
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 2,
     });
 };
 
@@ -101,16 +103,25 @@ export const useAddInvoice = () => {
 
             // 1. Save locally
             await db.invoices.put(payload as any);
-            // 2. Add to Sync Queue
-            await addToSyncQueue('invoices', 'CREATE', payload);
-            // 3. Trigger Sync
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write to Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'invoices', tempId);
+                    await setDoc(docRef, payload);
+                    console.log('[useInvoices] Invoice saved to Firestore:', tempId);
+                } catch (err) {
+                    console.error('[useInvoices] Firestore write failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useInvoices] Offline - invoice saved locally only');
+            }
 
             return mapToApp(payload);
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            await queryClient.refetchQueries({ queryKey: ['invoices'] });
         },
     });
 };
@@ -121,30 +132,56 @@ export const useUpdateInvoice = () => {
 
     return useMutation({
         mutationFn: async (invoice: Invoice) => {
-            const payload = mapToDB(invoice, currentUser?.tenant_id);
+            const existing = await db.invoices.get(invoice.id);
+            const payload = mapToDB(invoice, currentUser?.tenant_id, (existing as any)?.created_at);
+            
+            // 1. Save locally
             await db.invoices.put(payload as any);
-            await addToSyncQueue('invoices', 'UPDATE', payload);
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Write to Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'invoices', invoice.id);
+                    await setDoc(docRef, payload, { merge: true });
+                    console.log('[useInvoices] Invoice updated in Firestore:', invoice.id);
+                } catch (err) {
+                    console.error('[useInvoices] Firestore update failed:', err);
+                    throw err;
+                }
+            } else {
+                console.warn('[useInvoices] Offline - invoice updated locally only');
+            }
+
             return mapToApp(payload);
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            await queryClient.refetchQueries({ queryKey: ['invoices'] });
         },
     });
 };
 
 export const useDeleteInvoice = () => {
     const queryClient = useQueryClient();
+    
     return useMutation({
         mutationFn: async (id: string) => {
+            // 1. Save locally
             await db.invoices.delete(id);
-            await addToSyncQueue('invoices', 'DELETE', { id });
-            if (navigator.onLine) syncService.processQueue();
+
+            // 2. Delete from Firestore
+            if (navigator.onLine && isFirebaseConfigured()) {
+                try {
+                    const docRef = doc(firestoreDb, 'invoices', id);
+                    await deleteDoc(docRef);
+                    console.log('[useInvoices] Invoice deleted from Firestore:', id);
+                } catch (err) {
+                    console.error('[useInvoices] Firestore delete failed:', err);
+                    throw err;
+                }
+            }
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            await queryClient.refetchQueries({ queryKey: ['invoices'] });
         }
     });
 };
