@@ -75,14 +75,7 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
     if (!driver) return <div className="p-10 text-center text-gray-500">Chargement du profil...</div>;
 
     const driverActivity = monthlyActivity[targetId] || {};
-    
-    // Debug logs
-    console.log('👤 Driver ID:', targetId);
-    console.log('📊 Monthly Activity:', monthlyActivity);
-    console.log('🚗 Driver Activity:', driverActivity);
-    console.log('💰 Trip Rates:', tripRates);
-    console.log('🧮 Total Trips:', Object.keys(driverActivity).length);
-    
+
     // Calculate Stats
     const totalTrips = Object.values(driverActivity).reduce((a, b) => a + (b as number), 0);
     const variablePrime = Object.entries(driverActivity).reduce((total, [routeName, count]) => {
@@ -98,15 +91,8 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
         
         const rate = rateConfig?.truck_price || 0;
         const primeForRoute = (count as number) * rate;
-        
-        console.log(`📍 Route: "${routeName}" | Count: ${count} | Rate: ${rate} | Prime: ${primeForRoute}`);
-        
         return total + primeForRoute;
     }, 0);
-    
-    console.log('💵 Base Salary:', driver.baseSalary);
-    console.log('🎁 Variable Prime:', variablePrime);
-    console.log('💰 Total Salary:', (driver.baseSalary + variablePrime).toFixed(3));
 
     const handleSave = () => {
         updateEmployeeMutation.mutate({ id: targetId, ...editForm }, {
@@ -431,8 +417,6 @@ export const DriverProfileContent: React.FC<DriverProfileContentProps> = ({ driv
 
                                 const price = rateConfig ? rateConfig.truck_price : 0;
                                 const totalRow = (count as number) * price;
-                                
-                                console.log(`📋 Table Row: "${routeName}" | Rate Found: ${!!rateConfig} | Price: ${price} | Total: ${totalRow}`);
 
                                 return (
                                     <tr key={routeName} className="hover:bg-gray-50 transition-colors">
