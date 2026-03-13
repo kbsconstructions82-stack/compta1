@@ -28,7 +28,7 @@ export class MomoDB extends Dexie {
     invoices!: Table<Invoice, string>; // ID is UUID string
     missions!: Table<Mission, string>;
     expenses!: Table<Expense, string>;
-    companies!: Table<Company, string>; // Maps to 'companies' table in Supabase
+    companies!: Table<Company, string>; // Maps to 'companies' collection in Firestore
     trucks!: Table<Vehicle, string>;
     drivers!: Table<Employee, string>;
     tripRates!: Table<TripRate, string>;

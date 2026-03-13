@@ -173,7 +173,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
             onLogout(); // Force logout after password change
           }, 1000);
         } else {
-          alert('✅ Paramètres mis à jour avec succès sur Supabase !');
+          alert('✅ Paramètres mis à jour avec succès !');
         }
       } else {
         alert('Aucune modification détectée');

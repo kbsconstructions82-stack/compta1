@@ -9,7 +9,7 @@ import { useActivity } from '../src/hooks/useActivity';
 import { useVehicles, useUpdateVehicle } from '../src/hooks/useVehicles';
 import { useExpenses, useAddExpense } from '../src/hooks/useExpenses';
 import { calculateTTC, calculateTVA } from '../utils/taxUtils';
-import { uploadFile } from '../src/lib/supabase';
+import { uploadFile } from '../src/lib/firebase';
 
 interface DriverProfileContentProps {
     driverId?: string;

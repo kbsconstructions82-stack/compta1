@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => {
             ]
           },
           workbox: {
+            maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB (bundle Firebase ~2.27 MB)
             // Cache Google Fonts, Images, etc.
             runtimeCaching: [
               {

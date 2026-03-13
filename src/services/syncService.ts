@@ -1,5 +1,13 @@
 import { db, SyncQueueItem } from '../lib/db';
-import { supabase } from '../lib/supabase';
+import {
+    db as firestoreDb,
+    collection,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    getDocs,
+} from '../lib/firebase';
 
 export class SyncService {
     private isSyncing = false;
@@ -48,30 +56,35 @@ export class SyncService {
         await db.syncQueue.update(item.id!, { status: 'SYNCING' });
 
         try {
-            let result;
+            const { table, action, payload } = item;
 
-            // --- SUPABASE OPERATION ---
-            switch (item.action) {
-                case 'CREATE':
-                    // Remove temporary ID if it was generated locally and Supabase expects to generate it
-                    // OR keep it if we use UUIDs generated client-side (Recommended for offline-first)
-                    result = await supabase.from(item.table).insert(item.payload).select().single();
-                    break;
-                case 'UPDATE':
-                    result = await supabase.from(item.table).update(item.payload).match({ id: item.payload.id }).select().single();
-                    break;
-                case 'UPSERT':
-                    // Upsert relies on Primary Key or Unique Constraints
-                    // For tables like driver_activities, the constraint is typically (driver_id, route_name)
-                    result = await supabase.from(item.table).upsert(item.payload).select().single();
-                    break;
-                case 'DELETE':
-                    result = await supabase.from(item.table).delete().match({ id: item.payload.id });
-                    break;
+            if (!payload.id) {
+                throw new Error(`Payload missing 'id' field for table ${table}`);
             }
 
-            if (result && result.error) {
-                throw new Error(result.error.message);
+            const docRef = doc(firestoreDb, table, payload.id);
+
+            // --- FIREBASE FIRESTORE OPERATION ---
+            switch (action) {
+                case 'CREATE':
+                    // setDoc will create or overwrite the document with the given ID
+                    await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() });
+                    break;
+                case 'UPDATE':
+                    try {
+                        await updateDoc(docRef, { ...payload, _updated_at: new Date().toISOString() });
+                    } catch {
+                        // If document doesn't exist, create it
+                        await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() });
+                    }
+                    break;
+                case 'UPSERT':
+                    // merge: true = partial update, creates if doesn't exist
+                    await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() }, { merge: true });
+                    break;
+                case 'DELETE':
+                    await deleteDoc(docRef);
+                    break;
             }
 
             // --- SUCCESS ---
@@ -81,69 +94,33 @@ export class SyncService {
 
         } catch (error: any) {
             console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
-            
-            // CRITICAL: Check for duplicate key / unique constraint violations
-            if (error.message && (
-                error.message.includes('duplicate key value violates unique constraint') ||
-                error.message.includes('unique constraint') ||
-                error.message.includes('duplicate key')
-            )) {
-                console.warn(`[SyncService] Duplicate detected for item ${item.id}. Removing from queue (already exists in database).`);
-                await db.syncQueue.delete(item.id!);
-                return; // Stop processing this item - it's already in the database
-            }
-            
-            // CRITICAL: Check for invalid UUID syntax to avoid infinite loops
-            if (error.message && error.message.includes('invalid input syntax for type uuid')) {
-                console.error(`[SyncService] Critical Error: Invalid UUID found in queue for item ${item.id}. Marking as FAILED permanently to unblock queue.`);
-                await db.syncQueue.update(item.id!, { 
-                    status: 'FAILED', 
-                    error: `Permanent Failure: ${error.message}` 
-                });
-                return; // Stop processing this item
-            }
-
-            // CRITICAL: Check for foreign key violations (data doesn't exist in Supabase)
-            if (error.message && (
-                error.message.includes('violates foreign key constraint') ||
-                error.message.includes('foreign key') ||
-                error.message.includes('fkey')
-            )) {
-                console.error(`[SyncService] Foreign Key Error: Data referenced in item ${item.id} doesn't exist in Supabase. Marking as FAILED permanently.`);
-                await db.syncQueue.update(item.id!, { 
-                    status: 'FAILED', 
-                    error: `Foreign Key Violation: ${error.message}` 
-                });
-                return; // Stop processing this item
-            }
 
             // Increment retry count or mark FAILED
             if (item.retryCount >= 3) {
-                await db.syncQueue.update(item.id!, { 
-                    status: 'FAILED', 
-                    error: error.message || 'Unknown error' 
+                await db.syncQueue.update(item.id!, {
+                    status: 'FAILED',
+                    error: error.message || 'Unknown error'
                 });
             } else {
-                await db.syncQueue.update(item.id!, { 
-                    status: 'PENDING', 
-                    retryCount: item.retryCount + 1 
+                await db.syncQueue.update(item.id!, {
+                    status: 'PENDING',
+                    retryCount: item.retryCount + 1
                 });
             }
         }
     }
 
-    // --- DATA PULL (Supabase -> Local) ---
+    // --- DATA PULL (Firestore -> Local) ---
     // Should be called periodically or on App Start
     public async pullData(table: string) {
         if (!navigator.onLine) return;
 
         try {
-            const { data, error } = await supabase.from(table).select('*');
-            
-            if (error) throw error;
+            const colRef = collection(firestoreDb, table);
+            const snap = await getDocs(colRef);
 
-            if (data) {
-                // Bulk put (Upsert) into IndexedDB
+            if (!snap.empty) {
+                const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 // @ts-ignore
                 await db.table(table).bulkPut(data);
                 console.log(`[SyncService] Pulled ${data.length} records for ${table}`);
@@ -152,15 +129,15 @@ export class SyncService {
             console.error(`[SyncService] Pull failed for ${table}:`, error);
         }
     }
-    
+
     // Helper to pull all essential tables
     public async pullAll() {
-        await this.pullData('clients');
-        await this.pullData('camions'); // Map to 'trucks' if needed, ensure table names match
-        await this.pullData('chauffeurs');
+        await this.pullData('companies');
+        await this.pullData('vehicles');
+        await this.pullData('employees');
         await this.pullData('missions');
-        await this.pullData('factures');
-        await this.pullData('depenses');
+        await this.pullData('invoices');
+        await this.pullData('expenses');
     }
 }
 

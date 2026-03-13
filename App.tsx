@@ -38,7 +38,7 @@ function AppContent() {
   const { isAuthenticated, currentUser, login, logout, resetPassword, error: loginError, isLoading: authLoading } = useAuth();
   const [showResetPassword, setShowResetPassword] = useState(false);
   
-  // Detect password reset URL from Supabase email link
+  // Detect password reset URL from Firebase email link
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     if (hashParams.get('type') === 'recovery') {

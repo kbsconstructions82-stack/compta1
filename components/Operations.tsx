@@ -242,66 +242,32 @@ export const Operations: React.FC = () => {
                     // Chercher ou créer le client dans la table companies
                     if (!clientId) {
                         try {
-                            const { supabase } = await import('../src/lib/supabase');
+                            const { db: firestoreDb, collection, getDocs, doc, setDoc, query: fsQuery, where } = await import('../src/lib/firebase');
                             const { getValidTenantUUID, cacheTenantUUID } = await import('../src/utils/tenantUtils');
-                            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-
-                            if (!tenantUUID) {
-                                alert(`⚠️ Problème de tenant UUID. Veuillez créer le client "${clientName}" manuellement dans le module Facturation.`);
-                                return;
-                            }
-
+                            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
                             cacheTenantUUID(tenantUUID);
 
-                            // Chercher le client par nom dans la table companies
-                            const { data: existingClient, error: searchError } = await supabase
-                                .from('companies')
-                                .select('id')
-                                .eq('name', clientName)
-                                .eq('is_client', true)
-                                .maybeSingle();
+                            // Chercher le client par nom dans la collection companies
+                            const q = fsQuery(collection(firestoreDb, 'companies'), where('name', '==', clientName), where('is_client', '==', true));
+                            const snap = await getDocs(q);
 
-                            if (existingClient?.id) {
-                                clientId = existingClient.id;
+                            if (!snap.empty) {
+                                clientId = snap.docs[0].id;
                                 console.log(`✅ Client trouvé: ${clientName} (ID: ${clientId})`);
-                            } else if (!searchError || searchError.code === 'PGRST116') {
+                            } else {
                                 // Client n'existe pas, le créer automatiquement
                                 console.log(`⚠️ Client non trouvé, création automatique: ${clientName}`);
-
-                                // Générer un ID manuel au format C{timestamp}_{random}
-                                // Le schéma companies.id est TEXT PRIMARY KEY sans DEFAULT, donc on doit fournir l'ID
                                 const generatedClientId = `C${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-
-                                const { data: newClient, error: createError } = await supabase
-                                    .from('companies')
-                                    .insert([{
-                                        id: generatedClientId, // ID manuel requis (TEXT PRIMARY KEY sans DEFAULT)
-                                        name: clientName,
-                                        tenant_id: tenantUUID,
-                                        is_client: true,
-                                        is_supplier: false
-                                    }])
-                                    .select('id')
-                                    .single();
-
-                                if (newClient?.id) {
-                                    clientId = newClient.id;
-                                    console.log(`✅ Client créé automatiquement: ${clientName} (ID: ${clientId})`);
-                                } else if (createError) {
-                                    console.error('Erreur création client:', createError);
-                                    alert(`⚠️ Impossible de créer le client automatiquement.\n` +
-                                        `Client: ${clientName}\n` +
-                                        `Erreur: ${createError.message}\n\n` +
-                                        `Veuillez créer le client manuellement dans le module Facturation avant de générer la facture.`);
-                                    return;
-                                }
-                            } else {
-                                console.error('Erreur recherche client:', searchError);
-                                alert(`⚠️ Erreur lors de la recherche du client.\n` +
-                                    `Client: ${clientName}\n` +
-                                    `Erreur: ${searchError.message}\n\n` +
-                                    `Veuillez créer le client manuellement dans le module Facturation.`);
-                                return;
+                                await setDoc(doc(firestoreDb, 'companies', generatedClientId), {
+                                    id: generatedClientId,
+                                    name: clientName,
+                                    tenant_id: tenantUUID,
+                                    is_client: true,
+                                    is_supplier: false,
+                                    created_at: new Date().toISOString(),
+                                });
+                                clientId = generatedClientId;
+                                console.log(`✅ Client créé automatiquement: ${clientName} (ID: ${clientId})`);
                             }
                         } catch (err: any) {
                             console.error('Erreur lors de la recherche/création du client:', err);
@@ -479,43 +445,27 @@ export const Operations: React.FC = () => {
             // Chercher ou créer le client
             if (!clientId) {
                 try {
-                    const { supabase } = await import('../src/lib/supabase');
+                    const { db: firestoreDb2, collection: col2, getDocs: getDocs2, doc: doc2, setDoc: setDoc2, query: fsQuery2, where: where2 } = await import('../src/lib/firebase');
                     const { getValidTenantUUID, cacheTenantUUID } = await import('../src/utils/tenantUtils');
-                    const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-
-                    if (!tenantUUID) {
-                        console.error('⚠️ Problème de tenant UUID pour génération facture');
-                        return Promise.reject(new Error('Problème de tenant UUID'));
-                    }
-
+                    const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
                     cacheTenantUUID(tenantUUID);
 
-                    const { data: existingClient } = await supabase
-                        .from('companies')
-                        .select('id')
-                        .eq('name', clientName)
-                        .eq('is_client', true)
-                        .maybeSingle();
+                    const q2 = fsQuery2(col2(firestoreDb2, 'companies'), where2('name', '==', clientName), where2('is_client', '==', true));
+                    const snap2 = await getDocs2(q2);
 
-                    if (existingClient?.id) {
-                        clientId = existingClient.id;
+                    if (!snap2.empty) {
+                        clientId = snap2.docs[0].id;
                     } else {
                         const generatedClientId = `C${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-                        const { data: newClient } = await supabase
-                            .from('companies')
-                            .insert([{
-                                id: generatedClientId,
-                                name: clientName,
-                                tenant_id: tenantUUID,
-                                is_client: true,
-                                is_supplier: false
-                            }])
-                            .select('id')
-                            .single();
-
-                        if (newClient?.id) {
-                            clientId = newClient.id;
-                        }
+                        await setDoc2(doc2(firestoreDb2, 'companies', generatedClientId), {
+                            id: generatedClientId,
+                            name: clientName,
+                            tenant_id: tenantUUID,
+                            is_client: true,
+                            is_supplier: false,
+                            created_at: new Date().toISOString(),
+                        });
+                        clientId = generatedClientId;
                     }
                 } catch (err: any) {
                     console.error('Erreur lors de la gestion du client:', err);

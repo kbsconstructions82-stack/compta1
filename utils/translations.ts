@@ -183,7 +183,6 @@ export const translations = {
     financialEvolution: "التطور المالي",
     revenue: "الإيرادات",
     charges: "التكاليف",
-    charges: "المصاريف",
     aiExpert: "خبير الذكاء الاصطناعي",
     refresh: "تحديث",
     analyzing: "تحليل...",

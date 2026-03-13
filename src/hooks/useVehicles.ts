@@ -1,8 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+    db as firestoreDb,
+    collection,
+    getDocs,
+    query,
+    isFirebaseConfigured,
+} from '../lib/firebase';
 import { Vehicle } from '../../types';
 import { useAuth } from './useAuth';
-import { getValidTenantUUID, isValidUUID } from '../utils/tenantUtils';
 import { db, addToSyncQueue } from '../lib/db';
 import { syncService } from '../services/syncService';
 import { generateId } from '../utils/uuid';
@@ -11,30 +16,22 @@ export const useVehicles = () => {
     return useQuery({
         queryKey: ['vehicles'],
         queryFn: async () => {
-            // 1. Try to fetch from Supabase if online
-            if (navigator.onLine && isSupabaseConfigured()) {
+            // 1. Try Firestore if online
+            if (navigator.onLine && isFirebaseConfigured()) {
                 try {
-                    const { data, error } = await supabase
-                        .from('vehicles')
-                        .select('*');
-
-                    if (error) throw error;
-
-                    if (data) {
-                        // 2. Update Local DB
-                        await db.trucks.bulkPut(data as Vehicle[]);
-                        return data as Vehicle[];
-                    }
+                    const snap = await getDocs(collection(firestoreDb, 'vehicles'));
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Vehicle[];
+                    // 2. Update Local DB
+                    await db.trucks.bulkPut(data);
+                    return data;
                 } catch (err) {
                     console.warn('Network fetch failed, falling back to local DB', err);
                 }
             }
-
             // 3. Fallback to Dexie
-            const localData = await db.trucks.toArray();
-            return localData;
+            return db.trucks.toArray();
         },
-        staleTime: 1000 * 60 * 5, // 5 minutes
+        staleTime: 1000 * 60 * 5,
     });
 };
 
@@ -44,47 +41,22 @@ export const useAddVehicle = () => {
 
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
-            // Obtenir un tenant UUID valide (ou fallback offline)
-            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-            
-            if (!tenantUUID) {
-                // Should not happen with new tenantUtils logic, but safety check
-                throw new Error('Impossible d\'obtenir un tenant UUID.');
-            }
-
-            // Remove ID if empty string to let DB generate UUID
             const { id, ...vehicleData } = vehicle;
-            let payload: any = { ...vehicleData };
-            
-            // Only include id if it's a valid UUID (not empty string)
-            // Or generate one if missing (for offline creation)
-            if (id && id.trim() && isValidUUID(id)) {
-                payload.id = id;
-            } else {
-                payload.id = generateId();
-            }
+            const payload: Vehicle = {
+                ...vehicleData,
+                id: (id && id.trim()) ? id : generateId(),
+                tenant_id: currentUser?.tenant_id || 'T001',
+            };
 
-            payload.tenant_id = tenantUUID;
-
-            // Clean up empty strings that might cause issues
+            // Remove empty strings
             Object.keys(payload).forEach(key => {
-                if (payload[key] === '') {
-                    delete payload[key];
-                }
+                if ((payload as any)[key] === '') delete (payload as any)[key];
             });
 
-            // 1. Save to Local DB (Optimistic)
-            await db.trucks.put(payload as Vehicle);
-
-            // 2. Add to Sync Queue
+            await db.trucks.put(payload);
             await addToSyncQueue('vehicles', 'CREATE', payload);
-
-            // 3. Trigger Sync if online
-            if (navigator.onLine && isSupabaseConfigured()) {
-                syncService.processQueue();
-            }
-
-            return payload as Vehicle;
+            if (navigator.onLine) syncService.processQueue();
+            return payload;
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
@@ -99,22 +71,10 @@ export const useUpdateVehicle = () => {
 
     return useMutation({
         mutationFn: async (vehicle: Vehicle) => {
-             const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
-             
-             // Ensure tenant_id is set
-             const payload = { ...vehicle, tenant_id: tenantUUID };
-
-            // 1. Update Local DB
+            const payload = { ...vehicle, tenant_id: currentUser?.tenant_id || 'T001' };
             await db.trucks.put(payload);
-
-            // 2. Add to Sync Queue
             await addToSyncQueue('vehicles', 'UPDATE', payload);
-
-            // 3. Trigger Sync
-            if (navigator.onLine && isSupabaseConfigured()) {
-                syncService.processQueue();
-            }
-
+            if (navigator.onLine) syncService.processQueue();
             return payload;
         },
         onSuccess: async () => {
@@ -128,16 +88,9 @@ export const useDeleteVehicle = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (id: string) => {
-            // 1. Delete from Local DB
             await db.trucks.delete(id);
-
-            // 2. Add to Sync Queue
             await addToSyncQueue('vehicles', 'DELETE', { id });
-
-            // 3. Trigger Sync
-            if (navigator.onLine && isSupabaseConfigured()) {
-                syncService.processQueue();
-            }
+            if (navigator.onLine) syncService.processQueue();
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['vehicles'] });

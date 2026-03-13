@@ -54,8 +54,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Ignorer les requêtes vers les API Supabase
-  if (url.hostname.includes('supabase')) {
+  // Ignorer les requêtes vers les API Firebase (gérées directement par le SDK)
+  if (url.hostname.includes('googleapis.com') || 
+      url.hostname.includes('firebaseapp.com') || 
+      url.hostname.includes('firebasestorage.app') ||
+      url.hostname.includes('firebaseio.com')) {
     return;
   }
 

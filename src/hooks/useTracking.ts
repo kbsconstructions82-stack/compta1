@@ -1,7 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+    db as firestoreDb,
+    collection,
+    getDocs,
+    doc,
+    setDoc,
+    query,
+    where,
+    orderBy,
+    isFirebaseConfigured,
+} from '../lib/firebase';
 import { useAuth } from './useAuth';
-import { getValidTenantUUID } from '../utils/tenantUtils';
 
 export interface TrackingPosition {
     id?: string;
@@ -30,29 +39,27 @@ export const useTracking = () => {
     return useQuery({
         queryKey: ['tracking'],
         queryFn: async () => {
-            if (!isSupabaseConfigured()) {
-                console.warn('[useTracking] Supabase not configured');
+            if (!isFirebaseConfigured()) {
+                console.warn('[useTracking] Firebase not configured');
                 return [];
             }
 
-            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-
-            // Récupérer les dernières positions via la vue
-            const { data, error } = await supabase
-                .from('latest_positions')
-                .select('*')
-                .eq('tenant_id', tenantUUID)
-                .order('timestamp', { ascending: false });
-
-            if (error) {
-                console.error('[useTracking] Error fetching positions:', error);
-                throw new Error(error.message);
+            try {
+                // Fetch latest positions from Firestore
+                const q = query(
+                    collection(firestoreDb, 'tracking'),
+                    where('tenant_id', '==', currentUser?.tenant_id || 'T001'),
+                    orderBy('timestamp', 'desc')
+                );
+                const snap = await getDocs(q);
+                return snap.docs.map(d => ({ id: d.id, ...d.data() })) as TrackingPosition[];
+            } catch (err) {
+                console.error('[useTracking] Error fetching positions:', err);
+                return [];
             }
-
-            return data as TrackingPosition[];
         },
-        refetchInterval: 10000, // Rafraîchir toutes les 10 secondes
-        enabled: isSupabaseConfigured(),
+        refetchInterval: 10000,
+        enabled: isFirebaseConfigured(),
     });
 };
 
@@ -65,33 +72,28 @@ export const useTrackingHistory = (driverId?: string, limit: number = 50) => {
     return useQuery({
         queryKey: ['tracking-history', driverId],
         queryFn: async () => {
-            if (!isSupabaseConfigured() || !driverId) {
+            if (!isFirebaseConfigured() || !driverId) return [];
+
+            try {
+                const q = query(
+                    collection(firestoreDb, 'tracking'),
+                    where('tenant_id', '==', currentUser?.tenant_id || 'T001'),
+                    where('driver_id', '==', driverId),
+                    orderBy('timestamp', 'desc')
+                );
+                const snap = await getDocs(q);
+                return snap.docs.slice(0, limit).map(d => ({ id: d.id, ...d.data() })) as TrackingPosition[];
+            } catch (err) {
+                console.error('[useTrackingHistory] Error:', err);
                 return [];
             }
-
-            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-
-            const { data, error } = await supabase
-                .from('tracking')
-                .select('*')
-                .eq('tenant_id', tenantUUID)
-                .eq('driver_id', driverId)
-                .order('timestamp', { ascending: false })
-                .limit(limit);
-
-            if (error) {
-                console.error('[useTrackingHistory] Error:', error);
-                throw new Error(error.message);
-            }
-
-            return data as TrackingPosition[];
         },
-        enabled: isSupabaseConfigured() && !!driverId,
+        enabled: isFirebaseConfigured() && !!driverId,
     });
 };
 
 /**
- * Hook pour envoyer une nouvelle position GPS
+ * Hook pour envoyer une nouvelle position GPS vers Firestore
  */
 export const useSendPosition = () => {
     const queryClient = useQueryClient();
@@ -99,14 +101,13 @@ export const useSendPosition = () => {
 
     return useMutation({
         mutationFn: async (position: TrackingPosition) => {
-            if (!isSupabaseConfigured()) {
-                throw new Error('Supabase not configured');
+            if (!isFirebaseConfigured()) {
+                throw new Error('Firebase not configured');
             }
 
-            const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id);
-
+            const docId = `${position.driver_id}_${Date.now()}`;
             const payload = {
-                tenant_id: tenantUUID,
+                tenant_id: currentUser?.tenant_id || 'T001',
                 driver_id: position.driver_id,
                 vehicle_id: position.vehicle_id || null,
                 latitude: position.latitude,
@@ -120,18 +121,8 @@ export const useSendPosition = () => {
                 timestamp: new Date().toISOString(),
             };
 
-            const { data, error } = await supabase
-                .from('tracking')
-                .insert([payload])
-                .select()
-                .single();
-
-            if (error) {
-                console.error('[useSendPosition] Error:', error);
-                throw new Error(error.message);
-            }
-
-            return data;
+            await setDoc(doc(firestoreDb, 'tracking', docId), payload);
+            return payload;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tracking'] });
@@ -141,7 +132,6 @@ export const useSendPosition = () => {
 
 /**
  * Hook personnalisé pour activer le suivi GPS automatique
- * Utilise l'API Geolocation HTML5
  */
 export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: boolean = false) => {
     const sendPositionMutation = useSendPosition();
@@ -158,7 +148,6 @@ export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: b
                 (position) => {
                     const { latitude, longitude, accuracy, altitude, heading, speed } = position.coords;
 
-                    // Récupérer le niveau de batterie si disponible
                     let batteryLevel: number | undefined;
                     if ('getBattery' in navigator) {
                         (navigator as any).getBattery().then((battery: any) => {
@@ -166,7 +155,6 @@ export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: b
                         });
                     }
 
-                    // Envoyer la position
                     sendPositionMutation.mutate({
                         driver_id: driverId,
                         vehicle_id: vehicleId,
@@ -175,9 +163,9 @@ export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: b
                         accuracy: accuracy || undefined,
                         altitude: altitude || undefined,
                         heading: heading || undefined,
-                        speed: speed ? speed * 3.6 : undefined, // Convertir m/s en km/h
+                        speed: speed ? speed * 3.6 : undefined,
                         battery_level: batteryLevel,
-                        is_moving: speed ? speed > 0.5 : undefined, // Considéré en mouvement si > 0.5 m/s
+                        is_moving: speed ? speed > 0.5 : undefined,
                     });
                 },
                 (error) => {
@@ -193,7 +181,6 @@ export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: b
             console.warn('[GPS] Geolocation not supported');
         }
 
-        // Cleanup
         return () => {
             if (watchId !== null) {
                 console.log('[GPS] Stopping GPS tracking');

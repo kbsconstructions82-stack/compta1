@@ -9,7 +9,7 @@ import { MobileTableWrapper, MobileCard, MobileCardRow } from './MobileTableWrap
 import { useExpenses, useAddExpense, useDeleteExpense } from '../src/hooks/useExpenses';
 import { useVehicles, useUpdateVehicle } from '../src/hooks/useVehicles';
 import { useAuth } from '../src/hooks/useAuth';
-import { uploadFile } from '../src/lib/supabase';
+import { uploadFile } from '../src/lib/firebase';
 
 // Helper to get beneficiary
 const getBeneficiaryInfo = (vehicleId: string, vehicles: Vehicle[]) => {
