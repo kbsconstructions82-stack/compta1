@@ -25,6 +25,7 @@ import {
     updateEmail,
     EmailAuthProvider,
     reauthenticateWithCredential,
+    createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import {
     getStorage,
@@ -33,14 +34,15 @@ import {
     getDownloadURL,
 } from 'firebase/storage';
 
-// Configuration Firebase (projet kbs-btp-app-2025)
+// Configuration Firebase (projet compta1-fa357)
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBFn2jq0QF26Z1HnTy5KryXnQ-ns991GZ0',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'kbs-btp-app-2025.firebaseapp.com',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kbs-btp-app-2025',
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'kbs-btp-app-2025.firebasestorage.app',
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '152407857512',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:152407857512:web:d3297584f4a0df462c9edd',
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBdcYX_pRwRDjk3mlpJvjPBwjjgY5j-uFs',
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'compta1-fa357.firebaseapp.com',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'compta1-fa357',
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'compta1-fa357.appspot.com',
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '996737652811',
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:996737652811:web:8040e97b8da2247c2b55ce',
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-MVQTXCTWGY',
 };
 
 // Initialize Firebase
@@ -83,6 +85,34 @@ export {
     updateEmail,
     EmailAuthProvider,
     reauthenticateWithCredential,
+    createUserWithEmailAndPassword // Add this
+};
+
+// Secondary App for creating users without logging out the admin
+let secondaryApp: any = null;
+
+export const createDriverAuthAccount = async (email: string, password: string) => {
+    try {
+        if (!secondaryApp) {
+            secondaryApp = initializeApp(firebaseConfig, "SecondaryAppForAuth");
+        }
+        const secondaryAuth = getAuth(secondaryApp);
+        // We import it here so we don't accidentally use the main auth
+        const { createUserWithEmailAndPassword: createSecondaryUser } = await import('firebase/auth');
+        
+        await createSecondaryUser(secondaryAuth, email, password);
+        // Automatically signOut from secondary app so it doesn't leave a lingering session
+        await secondaryAuth.signOut();
+        return true;
+    } catch (error: any) {
+        // Ignorer l'erreur si l'utilisateur existe déjà
+        if (error.code === 'auth/email-already-in-use') {
+            console.log("Account already exists in Firebase Auth:", email);
+            return true;
+        }
+        console.error("Failed to create secondary auth account:", error);
+        throw error;
+    }
 };
 
 // Re-export Storage utilities
