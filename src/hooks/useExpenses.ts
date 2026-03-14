@@ -60,6 +60,7 @@ export const useAddExpense = () => {
                 tenant_id: currentUser?.tenant_id || 'T001',
                 created_at: expense.created_at || now,
                 updated_at: now,
+                fuel_liters: expense.fuel_liters ?? null,
             };
 
             // 1. Save to Dexie immediately (optimistic)
@@ -100,6 +101,7 @@ export const useUpdateExpense = () => {
                 tenant_id: currentUser?.tenant_id || 'T001',
                 created_at: existing?.created_at || new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                fuel_liters: expense.fuel_liters ?? null,
             };
 
             // 1. Update Dexie immediately

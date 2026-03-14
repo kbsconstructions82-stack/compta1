@@ -598,7 +598,7 @@ export const Payroll: React.FC = () => {
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Salaire Base (Net)</th>
                                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Activité</th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Prime Trajets (Net)</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Coût Total</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL</th>
                                         <th className="px-4 py-3 w-10"></th>
                                     </tr>
                                 </thead>
@@ -647,7 +647,7 @@ export const Payroll: React.FC = () => {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-gray-500 font-mono">
-                                                    {driver.baseSalary.toFixed(3)}
+                                                    {(driver.baseSalary || 0).toFixed(3)}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-center">
                                                     <button
@@ -661,11 +661,11 @@ export const Payroll: React.FC = () => {
                                                     </button>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-blue-600 font-mono font-bold">
-                                                    +{variableBonus.toFixed(3)}
+                                                    +{(variableBonus || 0).toFixed(3)}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-right">
-                                                    <div className="text-sm font-bold text-gray-800 font-mono">{payroll.totalCost.toFixed(3)}</div>
-                                                    <div className="text-[10px] text-gray-400">Entreprise</div>
+                                                    <div className="text-sm font-bold text-gray-800 font-mono">{((driver.baseSalary || 0) + (variableBonus || 0)).toFixed(3)}</div>
+                                                    <div className="text-[10px] text-gray-400">Salaire Base + Primes</div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-right">
                                                     <button
@@ -775,11 +775,33 @@ export const Payroll: React.FC = () => {
                             {newEmployee.role === 'Chauffeur' && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Immatricule Véhicule</label>
-                                    <input type="text" className="w-full border border-gray-300 rounded-lg p-2 uppercase"
-                                        placeholder="Ex: 180 TU 4521"
-                                        value={newEmployee.vehicleMatricule || ''}
-                                        onChange={e => setNewEmployee({ ...newEmployee, vehicleMatricule: e.target.value })}
-                                    />
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="text"
+                                            className="w-24 border border-gray-300 rounded-lg p-2 text-center uppercase"
+                                            placeholder="180"
+                                            value={newEmployee.vehicleMatricule?.split(/TU/i)[0]?.trim() || ''}
+                                            onChange={e => {
+                                                const part1 = e.target.value;
+                                                const part2 = newEmployee.vehicleMatricule?.split(/TU/i)[1]?.trim() || '';
+                                                if (!part1 && !part2) setNewEmployee({ ...newEmployee, vehicleMatricule: '' });
+                                                else setNewEmployee({ ...newEmployee, vehicleMatricule: `${part1} TU ${part2}` });
+                                            }}
+                                        />
+                                        <span className="text-gray-500 font-bold font-mono">TU</span>
+                                        <input
+                                            type="text"
+                                            className="flex-1 border border-gray-300 rounded-lg p-2 text-center uppercase"
+                                            placeholder="4521"
+                                            value={newEmployee.vehicleMatricule?.split(/TU/i)[1]?.trim() || ''}
+                                            onChange={e => {
+                                                const part1 = newEmployee.vehicleMatricule?.split(/TU/i)[0]?.trim() || '';
+                                                const part2 = e.target.value;
+                                                if (!part1 && !part2) setNewEmployee({ ...newEmployee, vehicleMatricule: '' });
+                                                else setNewEmployee({ ...newEmployee, vehicleMatricule: `${part1} TU ${part2}` });
+                                            }}
+                                        />
+                                    </div>
                                     <p className="text-[10px] text-gray-500 mt-1">
                                         Note: Si ce véhicule n'existe pas, il sera automatiquement ajouté au Parc Roulant.
                                     </p>

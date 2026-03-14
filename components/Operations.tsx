@@ -1474,7 +1474,13 @@ export const Operations: React.FC = () => {
                                         className="w-full bg-gray-800 border border-gray-600 text-white rounded-lg p-2.5 text-sm placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
                                         placeholder="Ex: BL-2025-001"
                                         value={newMissionForm.waybillNumber}
-                                        onChange={(e) => setNewMissionForm({ ...newMissionForm, waybillNumber: e.target.value })}
+                                        onChange={(e) => {
+                                            let val = e.target.value;
+                                            if (val && !val.startsWith('BL-')) {
+                                                val = 'BL-' + val.replace(/^BL-*/i, '');
+                                            }
+                                            setNewMissionForm({ ...newMissionForm, waybillNumber: val });
+                                        }}
                                     />
                                 </div>
                                 <div>

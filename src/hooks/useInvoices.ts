@@ -57,7 +57,7 @@ const mapToDB = (invoice: Invoice, tenantId?: string, existingCreatedAt?: string
     rs_rate: invoice.rs_rate,
     rs_amount: invoice.rs_amount,
     net_to_pay: invoice.net_to_pay,
-    attachment_url: invoice.attachment_url,
+    attachment_url: invoice.attachment_url ?? null,
     ...(tenantId ? { tenant_id: tenantId } : {}),
     created_at: existingCreatedAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
