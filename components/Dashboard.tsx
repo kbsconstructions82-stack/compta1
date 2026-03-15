@@ -820,7 +820,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">{chart.subtitle}</p>
                                         </div>
                                         <div className="text-sm font-extrabold bg-indigo-600 text-white px-2.5 py-1 rounded shadow-md">
-                                            {Number(chart.total).toLocaleString()}
+                                            {Number(chart.total || 0).toLocaleString()}
                                         </div>
                                     </div>
 
@@ -856,7 +856,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    {/* Legend/Stats */}
                                     <div className="w-full mt-2 space-y-1.5 bg-gray-50/50 p-2 rounded-lg">
                                         {chart.data.map((d: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center text-[10px]">
@@ -864,7 +863,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                                     <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: d.color }}></div>
                                                     <span className="text-gray-500">{d.name}</span>
                                                 </div>
-                                                <span className="font-bold text-gray-700">{d.value.toLocaleString()}</span>
+                                                <span className="font-bold text-gray-700">{(d.value || 0).toLocaleString()}</span>
                                             </div>
                                         ))}
                                     </div>

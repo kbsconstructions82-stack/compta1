@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Vehicle, VehicleType } from '../types';
+import { Vehicle, VehicleType, DriverState } from '../types';
 import { Truck, Calendar, AlertTriangle, FileText, CheckCircle, Search, Filter, Clock, Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
 import { useVehicles, useUpdateVehicle, useAddVehicle, useDeleteVehicle } from '../src/hooks/useVehicles';
+import { useAddEmployee } from '../src/hooks/useEmployees';
 import { MobileTableWrapper, MobileCard, MobileCardRow } from './MobileTableWrapper';
 
 export const Fleet: React.FC = () => {
@@ -10,6 +11,7 @@ export const Fleet: React.FC = () => {
     const updateVehicleMutation = useUpdateVehicle();
     const addVehicleMutation = useAddVehicle();
     const deleteVehicleMutation = useDeleteVehicle();
+    const addEmployeeMutation = useAddEmployee();
 
     const onUpdateVehicle = (updatedVehicle: Vehicle) => {
         updateVehicleMutation.mutate(updatedVehicle, {
@@ -81,6 +83,11 @@ export const Fleet: React.FC = () => {
 
         if (currentVehicle.id) {
             onUpdateVehicle(currentVehicle as Vehicle);
+            
+            // Si on ajoute/modifie un chauffeur dans le véhicule, on vérifie s'il faut le créer
+            if (currentVehicle.driver_name && currentVehicle.driver_name.trim() !== '') {
+                createDriverIfNeeded(currentVehicle.driver_name, currentVehicle.matricule);
+            }
         } else {
             // Remove manual ID and tenant_id (handled by hook/backend)
             const newV = {
@@ -89,7 +96,35 @@ export const Fleet: React.FC = () => {
                 purchase_price: currentVehicle.purchase_price || 0
             } as Vehicle;
             onAddVehicle(newV);
+            
+            // Si le nouveau véhicule a un chauffeur, on le crée
+            if (newV.driver_name && newV.driver_name.trim() !== '') {
+                createDriverIfNeeded(newV.driver_name, newV.matricule);
+            }
         }
+    };
+
+    const createDriverIfNeeded = (driverName: string, vehicleMatricule: string) => {
+        const newEmployee: DriverState = {
+            id: '',
+            fullName: driverName,
+            role: 'Chauffeur',
+            baseSalary: 600,
+            maritalStatus: 'Married',
+            childrenCount: 0,
+            cin: '',
+            vehicleMatricule: vehicleMatricule
+        };
+
+        // Création de l'employé en arrière-plan
+        addEmployeeMutation.mutate(newEmployee, {
+            onSuccess: () => {
+                console.log(`Chauffeur ${driverName} créé et assigné au véhicule ${vehicleMatricule}.`);
+            },
+            onError: (err: any) => {
+                console.error("Erreur création chauffeur auto: ", err);
+            }
+        });
     };
 
     return (
@@ -295,13 +330,35 @@ export const Fleet: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Matricule</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-sm font-mono font-bold text-white placeholder-gray-400"
-                                        placeholder="123 TU 4567"
-                                        value={currentVehicle.matricule || ''}
-                                        onChange={e => setCurrentVehicle({ ...currentVehicle, matricule: e.target.value })}
-                                    />
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="text"
+                                            className="w-24 bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-sm font-mono font-bold text-white placeholder-gray-400 text-center uppercase"
+                                            placeholder="123"
+                                            value={currentVehicle.matricule?.split(/TU/i)[0]?.trim() || ''}
+                                            onChange={e => {
+                                                const part1 = e.target.value;
+                                                const part2 = currentVehicle.matricule?.split(/TU/i)[1]?.trim() || '';
+                                                // Prevent generating isolated "TU" if both parts are empty
+                                                if (!part1 && !part2) setCurrentVehicle({ ...currentVehicle, matricule: '' });
+                                                else setCurrentVehicle({ ...currentVehicle, matricule: `${part1} TU ${part2}` });
+                                            }}
+                                        />
+                                        <span className="text-gray-400 font-bold font-mono">TU</span>
+                                        <input
+                                            type="text"
+                                            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg p-2.5 text-sm font-mono font-bold text-white placeholder-gray-400 text-center uppercase"
+                                            placeholder="4567"
+                                            value={currentVehicle.matricule?.split(/TU/i)[1]?.trim() || ''}
+                                            onChange={e => {
+                                                const part1 = currentVehicle.matricule?.split(/TU/i)[0]?.trim() || '';
+                                                const part2 = e.target.value;
+                                                // Prevent generating isolated "TU" if both parts are empty
+                                                if (!part1 && !part2) setCurrentVehicle({ ...currentVehicle, matricule: '' });
+                                                else setCurrentVehicle({ ...currentVehicle, matricule: `${part1} TU ${part2}` });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>

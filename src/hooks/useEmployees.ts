@@ -9,6 +9,7 @@ import {
     query,
     orderBy,
     isFirebaseConfigured,
+    createDriverAuthAccount,
 } from '../lib/firebase';
 import { DriverState, Employee } from '../../types';
 import { useAuth } from './useAuth';
@@ -89,12 +90,16 @@ export const useAddEmployee = () => {
         mutationFn: async (employee: DriverState) => {
             const tenantId = currentUser?.tenant_id || 'T001';
             const tempId = employee.id || generateId();
-            const employeeWithId = { ...employee, id: tempId };
+            // Nettoyage du username pour l'email Firebase
+            let username = (employee as any).username || '';
+            username = username.toLowerCase().replace(/\s+/g, '');
+            const employeeWithId = { ...employee, id: tempId, username };
 
             let passwordHash: string | null = null;
-            if ((employee as any).password) {
+            let plainPassword = (employee as any).password || '';
+            if (plainPassword) {
                 const salt = bcrypt.genSaltSync(10);
-                passwordHash = bcrypt.hashSync((employee as any).password, salt);
+                passwordHash = bcrypt.hashSync(plainPassword, salt);
             }
 
             const dbPayload = mapToDB(employeeWithId, tenantId, passwordHash);
@@ -102,21 +107,42 @@ export const useAddEmployee = () => {
             // 1. Save to Dexie immediately (optimistic)
             await db.drivers.put(dbPayload as any);
 
+            let authResult = { success: false, message: '', code: '' };
+
             // 2. Write directly to Firestore if online
             if (navigator.onLine && isFirebaseConfigured()) {
                 try {
                     const docRef = doc(firestoreDb, 'employees', tempId);
                     await setDoc(docRef, dbPayload);
                     console.log('[useEmployees] Employee saved to Firestore:', tempId);
+
+                    // 3. Create Firebase Auth User for the driver
+                    if (username && plainPassword) {
+                        const email = `${username}@compta1.com`;
+                        console.log('[useEmployees] Tentative création Auth:', email, plainPassword);
+                        try {
+                            await createDriverAuthAccount(email, plainPassword);
+                            authResult = { success: true, message: 'Compte Auth créé avec succès.', code: '' };
+                        } catch (err: any) {
+                            if (err?.code === 'auth/email-already-in-use') {
+                                authResult = { success: true, message: 'Email déjà utilisé, compte Auth déjà existant.', code: err.code };
+                            } else {
+                                authResult = { success: false, message: err?.message || 'Erreur inconnue lors de la création du compte Auth.', code: err?.code || '' };
+                            }
+                        }
+                    } else {
+                        authResult = { success: false, message: 'Aucun identifiant fourni.', code: 'no-credentials' };
+                    }
                 } catch (err) {
                     console.error('[useEmployees] Firestore write failed:', err);
                     throw err; // Re-throw so the UI shows the error
                 }
             } else {
                 console.warn('[useEmployees] Offline - employee saved locally only');
+                authResult = { success: false, message: 'Création Auth non tentée (hors ligne ou config Firebase manquante).', code: 'offline' };
             }
 
-            return mapToApp(dbPayload);
+            return { employee: mapToApp(dbPayload), authResult };
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['employees'] });
@@ -157,6 +183,17 @@ export const useUpdateEmployee = () => {
                     const docRef = doc(firestoreDb, 'employees', employee.id);
                     await setDoc(docRef, dbPayload, { merge: true });
                     console.log('[useEmployees] Employee updated in Firestore:', employee.id);
+                    
+                    // 3. Keep Auth User in sync (Create if it doesn't exist, ignore otherwise)
+                    // Note: This won't update the password if it already exists because no API for that via client SDK easily,
+                    // but it will create the account if the user was missing from Firebase Auth.
+                    if ((employee as any).username && (employee as any).password) {
+                        const pwd = (employee as any).password;
+                        if (!pwd.startsWith('$2')) { // Only try if it's plaintext
+                            const email = `${(employee as any).username.toLowerCase()}@compta1.com`;
+                            await createDriverAuthAccount(email, pwd);
+                        }
+                    }
                 } catch (err) {
                     console.error('[useEmployees] Firestore update failed:', err);
                     throw err;

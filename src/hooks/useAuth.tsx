@@ -156,19 +156,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 1. Try Firebase Auth (email/password)
         try {
-            console.log('[Auth] Trying Firebase authentication for:', u);
-            const userCredential = await signInWithEmailAndPassword(auth, u, p);
+            // If the user typed a username without @, append our default domain for drivers
+            const loginEmail = u.includes('@') ? u : `${u.toLowerCase()}@compta1.com`;
+            console.log('[Auth] Trying Firebase authentication for:', loginEmail);
+            
+            const userCredential = await signInWithEmailAndPassword(auth, loginEmail, p);
             const firebaseUser = userCredential.user;
 
             const user: User = {
                 id: firebaseUser.uid,
                 tenant_id: 'T001',
                 email: firebaseUser.email || '',
-                full_name: firebaseUser.displayName || firebaseUser.email || 'Utilisateur',
-                role: 'ADMIN',
+                full_name: firebaseUser.displayName || u, // Fallback to provided name
+                role: 'ADMIN', // Standard fallback, we'll refine if it's a driver next
                 last_login: new Date().toISOString(),
                 status: 'Active'
             };
+            
+            // Si c'est un compte chauffeur (email finit par @compta1.com et ce n'est pas l'admin)
+            if (loginEmail.endsWith('@compta1.com') && loginEmail !== 'admin@compta1.com') {
+                user.role = 'CHAUFFEUR';
+                
+                // Fetch the actual driver details from Firestore to get full_name
+                try {
+                    const employeesRef = collection(firestoreDb, 'employees');
+                    const q = query(employeesRef, where('username', '==', u.toLowerCase()));
+                    const snap = await getDocs(q);
+                    if (!snap.empty) {
+                        const driverData = snap.docs[0].data();
+                        user.full_name = driverData.full_name || u;
+                        user.id = snap.docs[0].id;
+                        
+                        localStorage.setItem('driver_session', JSON.stringify({
+                            id: user.id,
+                            tenant_id: user.tenant_id,
+                            email: user.email,
+                            full_name: user.full_name,
+                            username: u.toLowerCase()
+                        }));
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch extra driver details, continuing with defaults", e);
+                }
+            }
+
             setCurrentUser(user);
             setIsAuthenticated(true);
             setIsLoading(false);
@@ -184,16 +215,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setIsLoading(false);
                 return;
             }
-            console.warn('[Auth] Firebase auth failed, trying driver authentication');
+            console.warn('[Auth] Firebase auth failed, trying legacy driver authentication');
         }
 
         // 2. Try Driver Custom Auth (Firestore employees collection)
         try {
             console.log('[Auth] Trying driver authentication for:', u);
+            const normalizedUsername = u.toLowerCase().trim();
             const employeesRef = collection(firestoreDb, 'employees');
             const q = query(
                 employeesRef,
-                where('username', '==', u)
+                where('username', '==', normalizedUsername)
             );
             const snap = await getDocs(q);
             
@@ -202,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!snap.empty) {
                 driver = { id: snap.docs[0].id, ...snap.docs[0].data() };
             } else {
-                const emailQ = query(employeesRef, where('email', '==', u));
+                const emailQ = query(employeesRef, where('email', '==', normalizedUsername));
                 const emailSnap = await getDocs(emailQ);
                 if (!emailSnap.empty) {
                     driver = { id: emailSnap.docs[0].id, ...emailSnap.docs[0].data() };

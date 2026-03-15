@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import {
     getFirestore,
     collection,
@@ -94,7 +94,11 @@ let secondaryApp: any = null;
 export const createDriverAuthAccount = async (email: string, password: string) => {
     try {
         if (!secondaryApp) {
-            secondaryApp = initializeApp(firebaseConfig, "SecondaryAppForAuth");
+            const apps = getApps();
+            secondaryApp = apps.find(app => app.name === "SecondaryAppForAuth");
+            if (!secondaryApp) {
+                secondaryApp = initializeApp(firebaseConfig, "SecondaryAppForAuth");
+            }
         }
         const secondaryAuth = getAuth(secondaryApp);
         // We import it here so we don't accidentally use the main auth
@@ -102,7 +106,7 @@ export const createDriverAuthAccount = async (email: string, password: string) =
         
         await createSecondaryUser(secondaryAuth, email, password);
         // Automatically signOut from secondary app so it doesn't leave a lingering session
-        await secondaryAuth.signOut();
+        await signOut(secondaryAuth);
         return true;
     } catch (error: any) {
         // Ignorer l'erreur si l'utilisateur existe déjà

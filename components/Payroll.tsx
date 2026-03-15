@@ -302,8 +302,8 @@ export const Payroll: React.FC = () => {
         } as DriverState;
 
         try {
-            // Créer l'employé
-            await addEmployeeMutation.mutateAsync(driver);
+            // Créer l'employé et récupérer le résultat Auth
+            const { employee, authResult } = await addEmployeeMutation.mutateAsync(driver);
             
             // Si une immatriculation est fournie et que le véhicule n'existe pas, le créer
             if (newEmployee.vehicleMatricule && newEmployee.vehicleMatricule.trim()) {
@@ -339,27 +339,31 @@ export const Payroll: React.FC = () => {
             
             setIsAddEmployeeOpen(false);
 
-            // Afficher un message de succès avec les identifiants si fournis
+            // Afficher un message de succès/erreur Auth détaillé
+            let message = `✅ Salarié créé avec succès !\n\n` +
+                `Nom: ${newEmployee.fullName}\n` +
+                `Rôle: ${newEmployee.role}\n` +
+                (newEmployee.vehicleMatricule ? `🚗 Véhicule: ${newEmployee.vehicleMatricule.toUpperCase()} (ajouté au parc roulant)\n\n` : '\n');
+
             if (newEmployee.username && newEmployee.password) {
-                alert(
-                    `✅ Salarié créé avec succès !\n\n` +
-                    `Nom: ${newEmployee.fullName}\n` +
-                    `Rôle: ${newEmployee.role}\n` +
-                    (newEmployee.vehicleMatricule ? `🚗 Véhicule: ${newEmployee.vehicleMatricule.toUpperCase()} (ajouté au parc roulant)\n\n` : '\n') +
-                    `🔐 IDENTIFIANTS DE CONNEXION:\n` +
-                    `Username: ${newEmployee.username}\n` +
-                    `Password: ${newEmployee.password}\n\n` +
-                    `⚠️ IMPORTANT: Communiquez ces identifiants au salarié. Ils seront nécessaires pour se connecter à l'application.`
-                );
-            } else {
-                alert(
-                    `✅ Salarié créé avec succès !\n\n` +
-                    `Nom: ${newEmployee.fullName}\n` +
-                    `Rôle: ${newEmployee.role}\n` +
-                    (newEmployee.vehicleMatricule ? `🚗 Véhicule: ${newEmployee.vehicleMatricule.toUpperCase()} (ajouté au parc roulant)\n\n` : '\n') +
-                    `⚠️ Aucun identifiant fourni. Le salarié ne pourra pas se connecter. Vous pouvez les ajouter plus tard en modifiant le salarié.`
-                );
+                message += `🔐 IDENTIFIANTS DE CONNEXION:\nUsername: ${newEmployee.username}\nPassword: ${newEmployee.password}\n\n`;
             }
+
+            // Ajoute le retour Auth
+            if (authResult) {
+                if (authResult.success && authResult.code === 'auth/email-already-in-use') {
+                    message += `⚠️ Le compte Auth existe déjà pour cet identifiant.\n`;
+                } else if (authResult.success) {
+                    message += `✅ Compte Auth créé avec succès.\n`;
+                } else if (authResult.code === 'no-credentials') {
+                    message += `⚠️ Aucun identifiant fourni. Le salarié ne pourra pas se connecter.\n`;
+                } else {
+                    message += `❌ Erreur lors de la création du compte Auth: ${authResult.message}\n`;
+                }
+            }
+
+            message += `\n⚠️ IMPORTANT: Communiquez ces identifiants au salarié. Ils seront nécessaires pour se connecter à l'application.`;
+            alert(message);
 
             // Reset form
             setNewEmployee({ id: '', fullName: '', role: 'Chauffeur', baseSalary: 600, maritalStatus: 'Married', childrenCount: 0, cin: '', cnss_number: '', phone: '', email: '', vehicleMatricule: '', username: '', password: '' });
@@ -813,16 +817,28 @@ export const Payroll: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Identifiant (Login)</label>
-                                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
+                                        <input
+                                            type="text"
+                                            className="w-full border border-gray-300 rounded-lg p-2"
                                             placeholder="Ex: mohamed"
-                                            value={newEmployee.username || ''} onChange={e => setNewEmployee({ ...newEmployee, username: e.target.value })}
+                                            id="employee-username"
+                                            name="employee-username"
+                                            autoComplete="username"
+                                            value={newEmployee.username || ''}
+                                            onChange={e => setNewEmployee({ ...newEmployee, username: e.target.value })}
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2"
+                                        <input
+                                            type="password"
+                                            className="w-full border border-gray-300 rounded-lg p-2"
                                             placeholder="********"
-                                            value={newEmployee.password || ''} onChange={e => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                                            id="employee-password"
+                                            name="employee-password"
+                                            autoComplete="new-password"
+                                            value={newEmployee.password || ''}
+                                            onChange={e => setNewEmployee({ ...newEmployee, password: e.target.value })}
                                         />
                                     </div>
                                 </div>
