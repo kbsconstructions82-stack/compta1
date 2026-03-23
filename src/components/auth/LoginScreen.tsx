@@ -83,11 +83,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onResetPasswo
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
                                     disabled={isLoading}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter' && !isLoading) {
-                                            handleSubmit();
-                                        }
-                                    }}
                                 />
                             </div>
                             <button
