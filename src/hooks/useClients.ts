@@ -1,15 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    query,
-    orderBy,
-    where,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { Company } from '../../types';
 import { useAuth } from './useAuth';
 import { db } from '../lib/db';
@@ -22,21 +12,25 @@ export const useClients = () => {
             const localData = await db.companies.where('is_client').equals(1 as any).toArray() || await db.companies.toArray();
             let clientsLocal = localData.filter(c => c.is_client) as Company[];
 
-            if (navigator.onLine && isFirebaseConfigured()) {
+            if (navigator.onLine) {
                 try {
-                    const q = query(
-                        collection(firestoreDb, 'companies'),
-                        where('is_client', '==', true),
-                        orderBy('name', 'asc')
-                    );
-                    const snap = await getDocs(q);
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Company[];
+                    const { data: remoteData, error } = await supabase
+                        .from('companies')
+                        .select('*')
+                        .eq('is_client', true)
+                        .order('name', { ascending: true });
 
-                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    if (error) throw error;
+
+                    const validRemoteData = (remoteData || []) as Company[];
+
+                    const remoteIds = new Set(validRemoteData.map(d => d.id));
                     const localOnly = clientsLocal.filter(l => !remoteIds.has(l.id));
-                    const merged = [...remoteData, ...localOnly];
+                    const merged = [...validRemoteData, ...localOnly];
 
-                    await db.companies.bulkPut(remoteData);
+                    if (validRemoteData.length > 0) {
+                        await db.companies.bulkPut(validRemoteData);
+                    }
                     return merged.sort((a, b) => a.name.localeCompare(b.name));
                 } catch (err) {
                     console.warn('[useClients] Network fetch failed, falling back to local DB', err);
@@ -74,14 +68,14 @@ export const useAddClient = () => {
             // 1. Save locally
             await db.companies.put(newClient);
 
-            // 2. Write to Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase
+            if (navigator.onLine) {
                 try {
-                    const docRef = doc(firestoreDb, 'companies', tempId);
-                    await setDoc(docRef, newClient);
-                    console.log('[useClients] Client saved to Firestore:', tempId);
+                    const { error } = await supabase.from('companies').insert(newClient);
+                    if (error) throw error;
+                    console.log('[useClients] Client saved to Supabase:', tempId);
                 } catch (err) {
-                    console.error('[useClients] Firestore write failed:', err);
+                    console.error('[useClients] Supabase write failed:', err);
                     throw err;
                 }
             } else {

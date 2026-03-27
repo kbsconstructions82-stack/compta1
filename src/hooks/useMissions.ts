@@ -1,21 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    deleteDoc,
-    query,
-    orderBy,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Mission, MissionStatus } from '../../types';
 import { useAuth } from './useAuth';
 import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
-// --- HELPER: Map Firestore doc to App type ---
+// --- HELPER: Map DB doc to App type ---
 const mapMissionFromDB = (m: any): Mission => ({
     id: m.id,
     missionNumber: m.mission_number,
@@ -47,7 +37,7 @@ const mapMissionFromDB = (m: any): Mission => ({
     agreed_price_ttc: m.agreed_price_ttc || m.price_ht || 0,
 });
 
-// --- HELPER: Map App type to Firestore doc ---
+// --- HELPER: Map App type to DB doc ---
 const mapMissionToDB = (mission: Mission, tenantId: string, existingCreatedAt?: string) => {
     const defaultClient = 'NEW BOX TUNISIA';
     const missionClient = (mission.client && mission.client.trim() !== '' && mission.client !== 'Client')
@@ -83,18 +73,24 @@ export const useMissions = () => {
             // Always load local data first
             const localData = await db.missions.toArray();
 
-            if (navigator.onLine && isFirebaseConfigured()) {
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const q = query(collection(firestoreDb, 'missions'), orderBy('created_at', 'desc'));
-                    const snap = await getDocs(q);
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    const { data, error } = await supabase
+                        .from('missions')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+                    const remoteData = data;
                     
                     // Merge local pending items with remote
-                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const remoteIds = new Set(remoteData.map((d: any) => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id));
                     const merged = [...remoteData, ...localOnly];
 
-                    await db.missions.bulkPut(remoteData as any);
+                    if (remoteData.length > 0) {
+                        await db.missions.bulkPut(remoteData as any);
+                    }
                     return merged.map(mapMissionFromDB);
                 } catch (err) {
                     console.warn('[useMissions] Network fetch failed, falling back to local DB', err);
@@ -120,14 +116,14 @@ export const useAddMission = () => {
             // 1. Save locally
             await db.missions.put(dbPayload as any);
 
-            // 2. Write to Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'missions', tempId);
-                    await setDoc(docRef, dbPayload);
-                    console.log('[useMissions] Mission saved to Firestore:', tempId);
+                    const { error } = await supabase.from('missions').insert(dbPayload);
+                    if (error) throw error;
+                    console.log('[useMissions] Mission saved to Supabase:', tempId);
                 } catch (err) {
-                    console.error('[useMissions] Firestore write failed:', err);
+                    console.error('[useMissions] Supabase write failed:', err);
                     throw err;
                 }
             } else {
@@ -155,14 +151,14 @@ export const useUpdateMission = () => {
             // 1. Save locally
             await db.missions.put(dbPayload as any);
 
-            // 2. Write to Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'missions', mission.id);
-                    await setDoc(docRef, dbPayload, { merge: true });
-                    console.log('[useMissions] Mission updated in Firestore:', mission.id);
+                    const { error } = await supabase.from('missions').upsert(dbPayload);
+                    if (error) throw error;
+                    console.log('[useMissions] Mission updated in Supabase:', mission.id);
                 } catch (err) {
-                    console.error('[useMissions] Firestore update failed:', err);
+                    console.error('[useMissions] Supabase update failed:', err);
                     throw err;
                 }
             } else {
@@ -185,14 +181,14 @@ export const useDeleteMission = () => {
             // 1. Save locally
             await db.missions.delete(id);
 
-            // 2. Delete from Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Delete from Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'missions', id);
-                    await deleteDoc(docRef);
-                    console.log('[useMissions] Mission deleted from Firestore:', id);
+                    const { error } = await supabase.from('missions').delete().eq('id', id);
+                    if (error) throw error;
+                    console.log('[useMissions] Mission deleted from Supabase:', id);
                 } catch (err) {
-                    console.error('[useMissions] Firestore delete failed:', err);
+                    console.error('[useMissions] Supabase delete failed:', err);
                     throw err;
                 }
             }

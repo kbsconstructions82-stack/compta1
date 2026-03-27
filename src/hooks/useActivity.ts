@@ -1,12 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { db, DriverActivity } from '../lib/db';
 
 export const useActivity = () => {
@@ -15,14 +8,20 @@ export const useActivity = () => {
         queryFn: async () => {
             let data: DriverActivity[] = [];
 
-            // 1. Try Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 1. Try Supabase if online
+            if (navigator.onLine) {
                 try {
-                    const snap = await getDocs(collection(firestoreDb, 'driver_activities'));
-                    const remoteData = snap.docs.map(d => ({ ...d.data() })) as DriverActivity[];
-                    // 2. Update Local DB
-                    await db.driverActivities.bulkPut(remoteData);
-                    data = remoteData;
+                    const { data: remoteData, error } = await supabase
+                        .from('driver_activities')
+                        .select('*');
+
+                    if (error) throw error;
+                    
+                    if (remoteData && remoteData.length > 0) {
+                        // 2. Update Local DB
+                        await db.driverActivities.bulkPut(remoteData as DriverActivity[]);
+                        data = remoteData as DriverActivity[];
+                    }
                 } catch (err) {
                     console.warn('Network fetch failed, falling back to local DB', err);
                 }
@@ -53,7 +52,10 @@ export const useUpdateActivity = () => {
         mutationFn: async (data: { driverId: string; routeName: string; count: number }) => {
             const { driverId, routeName, count } = data;
 
+            const docId = `${driverId}_${routeName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
             const payload: DriverActivity = {
+                id: docId,
                 driver_id: driverId,
                 route_name: routeName,
                 count: count,
@@ -62,10 +64,10 @@ export const useUpdateActivity = () => {
             // 1. Update Local DB
             await db.driverActivities.put(payload);
 
-            // 2. In Firestore, use a deterministic ID based on driver + route for upsert behavior
-            const docId = `${driverId}_${routeName.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            if (navigator.onLine && isFirebaseConfigured()) {
-                await setDoc(doc(firestoreDb, 'driver_activities', docId), payload, { merge: true });
+            // 2. In Supabase, upsert
+            if (navigator.onLine) {
+                const { error } = await supabase.from('driver_activities').upsert(payload);
+                if (error) throw error;
             } else {
                 throw new Error("Impossible d'enregistrer l'activité hors ligne");
             }

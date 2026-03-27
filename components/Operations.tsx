@@ -242,30 +242,41 @@ export const Operations: React.FC = () => {
                     // Chercher ou créer le client dans la table companies
                     if (!clientId) {
                         try {
-                            const { db: firestoreDb, collection, getDocs, doc, setDoc, query: fsQuery, where } = await import('../src/lib/firebase');
+                            const { supabase } = await import('../src/lib/supabase');
                             const { getValidTenantUUID, cacheTenantUUID } = await import('../src/utils/tenantUtils');
                             const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
                             cacheTenantUUID(tenantUUID);
 
                             // Chercher le client par nom dans la collection companies
-                            const q = fsQuery(collection(firestoreDb, 'companies'), where('name', '==', clientName), where('is_client', '==', true));
-                            const snap = await getDocs(q);
+                            const { data: clients, error: searchError } = await supabase
+                                .from('companies')
+                                .select('id')
+                                .eq('name', clientName)
+                                .eq('is_client', true)
+                                .eq('tenant_id', tenantUUID);
 
-                            if (!snap.empty) {
-                                clientId = snap.docs[0].id;
+                            if (clients && clients.length > 0) {
+                                clientId = clients[0].id;
                                 console.log(`✅ Client trouvé: ${clientName} (ID: ${clientId})`);
                             } else {
                                 // Client n'existe pas, le créer automatiquement
                                 console.log(`⚠️ Client non trouvé, création automatique: ${clientName}`);
                                 const generatedClientId = `C${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-                                await setDoc(doc(firestoreDb, 'companies', generatedClientId), {
-                                    id: generatedClientId,
-                                    name: clientName,
-                                    tenant_id: tenantUUID,
-                                    is_client: true,
-                                    is_supplier: false,
-                                    created_at: new Date().toISOString(),
-                                });
+                                const { error: insertError } = await supabase
+                                    .from('companies')
+                                    .insert({
+                                        id: generatedClientId,
+                                        name: clientName,
+                                        tenant_id: tenantUUID,
+                                        is_client: true,
+                                        is_supplier: false,
+                                        created_at: new Date().toISOString(),
+                                    });
+                                
+                                if (insertError) {
+                                    console.error('Insertion failed:', insertError);
+                                }
+                                
                                 clientId = generatedClientId;
                                 console.log(`✅ Client créé automatiquement: ${clientName} (ID: ${clientId})`);
                             }
@@ -445,26 +456,37 @@ export const Operations: React.FC = () => {
             // Chercher ou créer le client
             if (!clientId) {
                 try {
-                    const { db: firestoreDb2, collection: col2, getDocs: getDocs2, doc: doc2, setDoc: setDoc2, query: fsQuery2, where: where2 } = await import('../src/lib/firebase');
+                    const { supabase } = await import('../src/lib/supabase');
                     const { getValidTenantUUID, cacheTenantUUID } = await import('../src/utils/tenantUtils');
                     const tenantUUID = await getValidTenantUUID(currentUser?.tenant_id) || 'T001';
                     cacheTenantUUID(tenantUUID);
 
-                    const q2 = fsQuery2(col2(firestoreDb2, 'companies'), where2('name', '==', clientName), where2('is_client', '==', true));
-                    const snap2 = await getDocs2(q2);
+                    const { data: clients2, error: searchError2 } = await supabase
+                        .from('companies')
+                        .select('id')
+                        .eq('name', clientName)
+                        .eq('is_client', true)
+                        .eq('tenant_id', tenantUUID);
 
-                    if (!snap2.empty) {
-                        clientId = snap2.docs[0].id;
+                    if (clients2 && clients2.length > 0) {
+                        clientId = clients2[0].id;
                     } else {
                         const generatedClientId = `C${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-                        await setDoc2(doc2(firestoreDb2, 'companies', generatedClientId), {
-                            id: generatedClientId,
-                            name: clientName,
-                            tenant_id: tenantUUID,
-                            is_client: true,
-                            is_supplier: false,
-                            created_at: new Date().toISOString(),
-                        });
+                        const { error: insertError2 } = await supabase
+                            .from('companies')
+                            .insert({
+                                id: generatedClientId,
+                                name: clientName,
+                                tenant_id: tenantUUID,
+                                is_client: true,
+                                is_supplier: false,
+                                created_at: new Date().toISOString(),
+                            });
+                            
+                        if (insertError2) {
+                            console.error('Insertion failed:', insertError2);
+                        }
+                        
                         clientId = generatedClientId;
                     }
                 } catch (err: any) {

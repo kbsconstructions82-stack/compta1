@@ -1,21 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    deleteDoc,
-    query,
-    orderBy,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Invoice } from '../../types';
 import { useAuth } from './useAuth';
 import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
 
-// Helper to map Firestore document to Application Type
+// Helper to map DB document to Application Type
 const mapToApp = (row: any): Invoice => ({
     id: row.id,
     number: row.number,
@@ -38,7 +28,7 @@ const mapToApp = (row: any): Invoice => ({
     tenant_id: row.tenant_id
 });
 
-// Helper to map Application Type to Firestore document
+// Helper to map Application Type to DB document
 const mapToDB = (invoice: Invoice, tenantId?: string, existingCreatedAt?: string) => ({
     id: invoice.id,
     number: invoice.number,
@@ -69,17 +59,23 @@ export const useInvoices = () => {
         queryFn: async () => {
             const localData = await db.invoices.toArray();
 
-            if (navigator.onLine && isFirebaseConfigured()) {
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const q = query(collection(firestoreDb, 'invoices'), orderBy('created_at', 'desc'));
-                    const snap = await getDocs(q);
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    const { data, error } = await supabase
+                        .from('invoices')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+                    const remoteData = data;
                     
-                    const remoteIds = new Set(remoteData.map(d => d.id));
+                    const remoteIds = new Set(remoteData.map((d: any) => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id));
                     const merged = [...remoteData, ...localOnly];
 
-                    await db.invoices.bulkPut(remoteData as any);
+                    if (remoteData.length > 0) {
+                        await db.invoices.bulkPut(remoteData as any);
+                    }
                     return merged.map(mapToApp);
                 } catch (err) {
                     console.warn('[useInvoices] Network fetch failed, falling back to local DB', err);
@@ -104,14 +100,14 @@ export const useAddInvoice = () => {
             // 1. Save locally
             await db.invoices.put(payload as any);
 
-            // 2. Write to Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'invoices', tempId);
-                    await setDoc(docRef, payload);
-                    console.log('[useInvoices] Invoice saved to Firestore:', tempId);
+                    const { error } = await supabase.from('invoices').insert(payload);
+                    if (error) throw error;
+                    console.log('[useInvoices] Invoice saved to Supabase:', tempId);
                 } catch (err) {
-                    console.error('[useInvoices] Firestore write failed:', err);
+                    console.error('[useInvoices] Supabase write failed:', err);
                     throw err;
                 }
             } else {
@@ -138,14 +134,14 @@ export const useUpdateInvoice = () => {
             // 1. Save locally
             await db.invoices.put(payload as any);
 
-            // 2. Write to Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'invoices', invoice.id);
-                    await setDoc(docRef, payload, { merge: true });
-                    console.log('[useInvoices] Invoice updated in Firestore:', invoice.id);
+                    const { error } = await supabase.from('invoices').upsert(payload);
+                    if (error) throw error;
+                    console.log('[useInvoices] Invoice updated in Supabase:', invoice.id);
                 } catch (err) {
-                    console.error('[useInvoices] Firestore update failed:', err);
+                    console.error('[useInvoices] Supabase update failed:', err);
                     throw err;
                 }
             } else {
@@ -168,14 +164,14 @@ export const useDeleteInvoice = () => {
             // 1. Save locally
             await db.invoices.delete(id);
 
-            // 2. Delete from Firestore
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Delete from Supabase
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'invoices', id);
-                    await deleteDoc(docRef);
-                    console.log('[useInvoices] Invoice deleted from Firestore:', id);
+                    const { error } = await supabase.from('invoices').delete().eq('id', id);
+                    if (error) throw error;
+                    console.log('[useInvoices] Invoice deleted from Supabase:', id);
                 } catch (err) {
-                    console.error('[useInvoices] Firestore delete failed:', err);
+                    console.error('[useInvoices] Supabase delete failed:', err);
                     throw err;
                 }
             }

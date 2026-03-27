@@ -1,16 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    query,
-    where,
-    orderBy,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import React from 'react';
 
 export interface TrackingPosition {
     id?: string;
@@ -39,27 +30,28 @@ export const useTracking = () => {
     return useQuery({
         queryKey: ['tracking'],
         queryFn: async () => {
-            if (!isFirebaseConfigured()) {
-                console.warn('[useTracking] Firebase not configured');
+            if (!isSupabaseConfigured()) {
+                console.warn('[useTracking] Supabase not configured');
                 return [];
             }
 
             try {
-                // Fetch latest positions from Firestore
-                const q = query(
-                    collection(firestoreDb, 'tracking'),
-                    where('tenant_id', '==', currentUser?.tenant_id || 'T001'),
-                    orderBy('timestamp', 'desc')
-                );
-                const snap = await getDocs(q);
-                return snap.docs.map(d => ({ id: d.id, ...d.data() })) as TrackingPosition[];
+                // Fetch latest positions from Supabase
+                const { data, error } = await supabase
+                    .from('tracking')
+                    .select('*')
+                    .eq('tenant_id', currentUser?.tenant_id || 'T001')
+                    .order('timestamp', { ascending: false });
+
+                if (error) throw error;
+                return data as TrackingPosition[];
             } catch (err) {
                 console.error('[useTracking] Error fetching positions:', err);
                 return [];
             }
         },
         refetchInterval: 10000,
-        enabled: isFirebaseConfigured(),
+        enabled: isSupabaseConfigured(),
     });
 };
 
@@ -72,28 +64,30 @@ export const useTrackingHistory = (driverId?: string, limit: number = 50) => {
     return useQuery({
         queryKey: ['tracking-history', driverId],
         queryFn: async () => {
-            if (!isFirebaseConfigured() || !driverId) return [];
+            if (!isSupabaseConfigured() || !driverId) return [];
 
             try {
-                const q = query(
-                    collection(firestoreDb, 'tracking'),
-                    where('tenant_id', '==', currentUser?.tenant_id || 'T001'),
-                    where('driver_id', '==', driverId),
-                    orderBy('timestamp', 'desc')
-                );
-                const snap = await getDocs(q);
-                return snap.docs.slice(0, limit).map(d => ({ id: d.id, ...d.data() })) as TrackingPosition[];
+                const { data, error } = await supabase
+                    .from('tracking')
+                    .select('*')
+                    .eq('tenant_id', currentUser?.tenant_id || 'T001')
+                    .eq('driver_id', driverId)
+                    .order('timestamp', { ascending: false })
+                    .limit(limit);
+
+                if (error) throw error;
+                return data as TrackingPosition[];
             } catch (err) {
                 console.error('[useTrackingHistory] Error:', err);
                 return [];
             }
         },
-        enabled: isFirebaseConfigured() && !!driverId,
+        enabled: isSupabaseConfigured() && !!driverId,
     });
 };
 
 /**
- * Hook pour envoyer une nouvelle position GPS vers Firestore
+ * Hook pour envoyer une nouvelle position GPS vers Supabase
  */
 export const useSendPosition = () => {
     const queryClient = useQueryClient();
@@ -101,12 +95,13 @@ export const useSendPosition = () => {
 
     return useMutation({
         mutationFn: async (position: TrackingPosition) => {
-            if (!isFirebaseConfigured()) {
-                throw new Error('Firebase not configured');
+            if (!isSupabaseConfigured()) {
+                throw new Error('Supabase not configured');
             }
 
             const docId = `${position.driver_id}_${Date.now()}`;
             const payload = {
+                id: docId,
                 tenant_id: currentUser?.tenant_id || 'T001',
                 driver_id: position.driver_id,
                 vehicle_id: position.vehicle_id || null,
@@ -121,7 +116,9 @@ export const useSendPosition = () => {
                 timestamp: new Date().toISOString(),
             };
 
-            await setDoc(doc(firestoreDb, 'tracking', docId), payload);
+            const { error } = await supabase.from('tracking').insert(payload);
+            if (error) throw error;
+
             return payload;
         },
         onSuccess: () => {
@@ -194,6 +191,3 @@ export const useGPSTracking = (driverId?: string, vehicleId?: string, enabled: b
         sendPosition: sendPositionMutation.mutate,
     };
 };
-
-// Import React for useEffect
-import React from 'react';

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Truck, ArrowLeft } from 'lucide-react';
-import { auth, updatePassword } from '../../lib/firebase';
+import { supabase } from '../../lib/supabase';
 
 interface ResetPasswordScreenProps {
     onSuccess: () => void;
@@ -31,11 +31,11 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ onSucc
         setIsLoading(true);
 
         try {
-            const firebaseUser = auth.currentUser;
-            if (!firebaseUser) {
-                throw new Error('Aucune session active. Veuillez vous reconnecter.');
-            }
-            await updatePassword(firebaseUser, password);
+            const { error: resetError } = await supabase.auth.updateUser({
+                password: password
+            });
+
+            if (resetError) throw resetError;
             
             setSuccess(true);
             setTimeout(() => {

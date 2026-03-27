@@ -1,16 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    deleteDoc,
-    query,
-    orderBy,
-    isFirebaseConfigured,
-    createDriverAuthAccount,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DriverState, Employee } from '../../types';
 import { useAuth } from './useAuth';
 import * as bcrypt from 'bcryptjs';
@@ -53,29 +42,33 @@ export const useEmployees = () => {
     return useQuery({
         queryKey: ['employees'],
         queryFn: async () => {
-            // Always load local data first (includes pending-sync items)
+            // Always load local data first
             const localData = await db.drivers.toArray();
 
-            // Try Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // Try Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const q = query(collection(firestoreDb, 'employees'), orderBy('created_at', 'desc'));
-                    const snap = await getDocs(q);
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    const { data, error } = await supabase
+                        .from('employees')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                        
+                    if (error) throw error;
+                    const remoteData = data;
 
-                    // Merge: remote is source of truth, keep local-only pending items
+                    // Merge
                     const remoteIds = new Set(remoteData.map((d: any) => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id));
                     const merged = [...remoteData, ...localOnly];
 
-                    // Update local DB with remote data
-                    await db.drivers.bulkPut(remoteData as Employee[]);
+                    if (remoteData.length > 0) {
+                        await db.drivers.bulkPut(remoteData as Employee[]);
+                    }
                     return merged.map(mapToApp);
                 } catch (err) {
                     console.warn('[useEmployees] Network fetch failed, falling back to local DB', err);
                 }
             }
-            // Fallback to Dexie only
             return localData.map(mapToApp);
         },
         staleTime: 1000 * 60 * 2,
@@ -90,7 +83,6 @@ export const useAddEmployee = () => {
         mutationFn: async (employee: DriverState) => {
             const tenantId = currentUser?.tenant_id || 'T001';
             const tempId = employee.id || generateId();
-            // Nettoyage du username pour l'email Firebase
             let username = (employee as any).username || '';
             username = username.toLowerCase().replace(/\s+/g, '');
             const employeeWithId = { ...employee, id: tempId, username };
@@ -104,42 +96,25 @@ export const useAddEmployee = () => {
 
             const dbPayload = mapToDB(employeeWithId, tenantId, passwordHash);
 
-            // 1. Save to Dexie immediately (optimistic)
+            // 1. Save to Dexie immediately
             await db.drivers.put(dbPayload as any);
 
             let authResult = { success: false, message: '', code: '' };
 
-            // 2. Write directly to Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write directly to Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'employees', tempId);
-                    await setDoc(docRef, dbPayload);
-                    console.log('[useEmployees] Employee saved to Firestore:', tempId);
-
-                    // 3. Create Firebase Auth User for the driver
-                    if (username && plainPassword) {
-                        const email = `${username}@compta1.com`;
-                        console.log('[useEmployees] Tentative création Auth:', email, plainPassword);
-                        try {
-                            await createDriverAuthAccount(email, plainPassword);
-                            authResult = { success: true, message: 'Compte Auth créé avec succès.', code: '' };
-                        } catch (err: any) {
-                            if (err?.code === 'auth/email-already-in-use') {
-                                authResult = { success: true, message: 'Email déjà utilisé, compte Auth déjà existant.', code: err.code };
-                            } else {
-                                authResult = { success: false, message: err?.message || 'Erreur inconnue lors de la création du compte Auth.', code: err?.code || '' };
-                            }
-                        }
-                    } else {
-                        authResult = { success: false, message: 'Aucun identifiant fourni.', code: 'no-credentials' };
-                    }
+                    const { error } = await supabase.from('employees').insert(dbPayload);
+                    if (error) throw error;
+                    console.log('[useEmployees] Employee saved to Supabase:', tempId);
+                    authResult = { success: true, message: 'Employé créé en base de données.', code: '' };
                 } catch (err) {
-                    console.error('[useEmployees] Firestore write failed:', err);
-                    throw err; // Re-throw so the UI shows the error
+                    console.error('[useEmployees] Supabase write failed:', err);
+                    throw err; 
                 }
             } else {
                 console.warn('[useEmployees] Offline - employee saved locally only');
-                authResult = { success: false, message: 'Création Auth non tentée (hors ligne ou config Firebase manquante).', code: 'offline' };
+                authResult = { success: false, message: 'Sauvegardé hors ligne.', code: 'offline' };
             }
 
             return { employee: mapToApp(dbPayload), authResult };
@@ -177,25 +152,14 @@ export const useUpdateEmployee = () => {
             // 1. Update Dexie immediately
             await db.drivers.put(dbPayload as any);
 
-            // 2. Write directly to Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write directly to Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'employees', employee.id);
-                    await setDoc(docRef, dbPayload, { merge: true });
-                    console.log('[useEmployees] Employee updated in Firestore:', employee.id);
-                    
-                    // 3. Keep Auth User in sync (Create if it doesn't exist, ignore otherwise)
-                    // Note: This won't update the password if it already exists because no API for that via client SDK easily,
-                    // but it will create the account if the user was missing from Firebase Auth.
-                    if ((employee as any).username && (employee as any).password) {
-                        const pwd = (employee as any).password;
-                        if (!pwd.startsWith('$2')) { // Only try if it's plaintext
-                            const email = `${(employee as any).username.toLowerCase()}@compta1.com`;
-                            await createDriverAuthAccount(email, pwd);
-                        }
-                    }
+                    const { error } = await supabase.from('employees').upsert(dbPayload);
+                    if (error) throw error;
+                    console.log('[useEmployees] Employee updated in Supabase:', employee.id);
                 } catch (err) {
-                    console.error('[useEmployees] Firestore update failed:', err);
+                    console.error('[useEmployees] Supabase update failed:', err);
                     throw err;
                 }
             } else {
@@ -219,14 +183,14 @@ export const useDeleteEmployee = () => {
             // 1. Delete from Dexie immediately
             await db.drivers.delete(id);
 
-            // 2. Delete from Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Delete from Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'employees', id);
-                    await deleteDoc(docRef);
-                    console.log('[useEmployees] Employee deleted from Firestore:', id);
+                    const { error } = await supabase.from('employees').delete().eq('id', id);
+                    if (error) throw error;
+                    console.log('[useEmployees] Employee deleted from Supabase:', id);
                 } catch (err) {
-                    console.error('[useEmployees] Firestore delete failed:', err);
+                    console.error('[useEmployees] Supabase delete failed:', err);
                     throw err;
                 }
             }

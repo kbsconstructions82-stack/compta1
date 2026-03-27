@@ -1,13 +1,5 @@
 import { db, SyncQueueItem } from '../lib/db';
-import {
-    db as firestoreDb,
-    collection,
-    doc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    getDocs,
-} from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 
 export class SyncService {
     private isSyncing = false;
@@ -68,29 +60,30 @@ export class SyncService {
                 throw new Error(`Payload missing 'id' field for table ${table}`);
             }
 
-            const docRef = doc(firestoreDb, table, payload.id);
+            let opError = null;
 
-            // --- FIREBASE FIRESTORE OPERATION ---
+            // --- SUPABASE OPERATION ---
             switch (action) {
                 case 'CREATE':
-                    // setDoc will create or overwrite the document with the given ID
-                    await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() });
+                    const { error: createError } = await supabase.from(table).insert({ ...payload, _synced_at: new Date().toISOString() });
+                    opError = createError;
                     break;
                 case 'UPDATE':
-                    try {
-                        await updateDoc(docRef, { ...payload, _updated_at: new Date().toISOString() });
-                    } catch {
-                        // If document doesn't exist, create it
-                        await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() });
-                    }
+                    const { error: updateError } = await supabase.from(table).update({ ...payload, _updated_at: new Date().toISOString() }).eq('id', payload.id);
+                    opError = updateError;
                     break;
                 case 'UPSERT':
-                    // merge: true = partial update, creates if doesn't exist
-                    await setDoc(docRef, { ...payload, _synced_at: new Date().toISOString() }, { merge: true });
+                    const { error: upsertError } = await supabase.from(table).upsert({ ...payload, _synced_at: new Date().toISOString() });
+                    opError = upsertError;
                     break;
                 case 'DELETE':
-                    await deleteDoc(docRef);
+                    const { error: deleteError } = await supabase.from(table).delete().eq('id', payload.id);
+                    opError = deleteError;
                     break;
+            }
+
+            if (opError) {
+                throw opError;
             }
 
             // --- SUCCESS ---
@@ -116,17 +109,17 @@ export class SyncService {
         }
     }
 
-    // --- DATA PULL (Firestore -> Local) ---
+    // --- DATA PULL (Supabase -> Local) ---
     // Should be called periodically or on App Start
     public async pullData(table: string) {
         if (!navigator.onLine) return;
 
         try {
-            const colRef = collection(firestoreDb, table);
-            const snap = await getDocs(colRef);
+            const { data, error } = await supabase.from(table).select('*');
 
-            if (!snap.empty) {
-                const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (error) throw error;
+
+            if (data && data.length > 0) {
                 // @ts-ignore
                 await db.table(table).bulkPut(data);
                 console.log(`[SyncService] Pulled ${data.length} records for ${table}`);

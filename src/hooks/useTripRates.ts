@@ -1,12 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { TripRate } from '../../types';
 import { db } from '../lib/db';
 import { generateId } from '../utils/uuid';
@@ -17,16 +10,20 @@ export const useTripRates = () => {
         queryFn: async () => {
             const localData = await db.tripRates.toArray();
 
-            if (navigator.onLine && isFirebaseConfigured()) {
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const snap = await getDocs(collection(firestoreDb, 'trip_rates'));
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as TripRate[];
+                    const { data, error } = await supabase.from('trip_rates').select('*');
+                    if (error) throw error;
+                    
+                    const remoteData = data as TripRate[];
                     
                     const remoteIds = new Set(remoteData.map(d => d.id));
                     const localOnly = localData.filter(l => !remoteIds.has(l.id!));
                     const merged = [...remoteData, ...localOnly];
 
-                    await db.tripRates.bulkPut(remoteData);
+                    if (remoteData.length > 0) {
+                        await db.tripRates.bulkPut(remoteData);
+                    }
                     return merged;
                 } catch (err) {
                     console.warn('[useTripRates] Network fetch failed, falling back to local DB', err);
@@ -52,16 +49,15 @@ export const useUpdateTripRates = () => {
             // 1. Save locally
             await db.tripRates.bulkPut(processedRates);
 
-            // 2. Write to Firestore sequentially
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write to Supabase sequentially
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    await Promise.all(processedRates.map(async (rate) => {
-                        const docRef = doc(firestoreDb, 'trip_rates', rate.id!);
-                        await setDoc(docRef, rate, { merge: true });
-                    }));
-                    console.log(`[useTripRates] ${processedRates.length} TripRates saved to Firestore`);
+                    // Supabase allows array inserts/upserts
+                    const { error } = await supabase.from('trip_rates').upsert(processedRates);
+                    if (error) throw error;
+                    console.log(`[useTripRates] ${processedRates.length} TripRates saved to Supabase`);
                 } catch (err) {
-                    console.error('[useTripRates] Firestore bulk write failed:', err);
+                    console.error('[useTripRates] Supabase bulk write failed:', err);
                     throw err;
                 }
             } else {

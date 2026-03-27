@@ -1,15 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    doc,
-    setDoc,
-    deleteDoc,
-    query,
-    orderBy,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Vehicle } from '../../types';
 import { useAuth } from './useAuth';
 import { db } from '../lib/db';
@@ -22,11 +12,13 @@ export const useVehicles = () => {
             // Always load local data first (includes pending-sync items)
             const localData = await db.trucks.toArray();
 
-            // Try Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // Try Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const snap = await getDocs(collection(firestoreDb, 'vehicles'));
-                    const remoteData = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Vehicle[];
+                    const { data, error } = await supabase.from('vehicles').select('*');
+                    if (error) throw error;
+                    
+                    const remoteData = data as Vehicle[];
 
                     // Merge: remote is source of truth, but keep local-only pending items
                     const remoteIds = new Set(remoteData.map(d => d.id));
@@ -34,7 +26,9 @@ export const useVehicles = () => {
                     const merged = [...remoteData, ...localOnly];
 
                     // Update local cache
-                    await db.trucks.bulkPut(remoteData);
+                    if (remoteData.length > 0) {
+                        await db.trucks.bulkPut(remoteData);
+                    }
                     return merged;
                 } catch (err) {
                     console.warn('[useVehicles] Network fetch failed, falling back to local DB', err);
@@ -73,14 +67,14 @@ export const useAddVehicle = () => {
             // 1. Save to Dexie immediately (optimistic)
             await db.trucks.put(payload);
 
-            // 2. Write directly to Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write directly to Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'vehicles', newId);
-                    await setDoc(docRef, payload);
-                    console.log('[useVehicles] Vehicle saved to Firestore:', newId);
+                    const { error } = await supabase.from('vehicles').insert(payload);
+                    if (error) throw error;
+                    console.log('[useVehicles] Vehicle saved to Supabase:', newId);
                 } catch (err) {
-                    console.error('[useVehicles] Firestore write failed:', err);
+                    console.error('[useVehicles] Supabase write failed:', err);
                     throw err; // Re-throw so the UI shows the error
                 }
             } else {
@@ -116,14 +110,14 @@ export const useUpdateVehicle = () => {
             // 1. Update Dexie immediately (optimistic)
             await db.trucks.put(payload);
 
-            // 2. Write directly to Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Write directly to Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'vehicles', vehicle.id);
-                    await setDoc(docRef, payload, { merge: true });
-                    console.log('[useVehicles] Vehicle updated in Firestore:', vehicle.id);
+                    const { error } = await supabase.from('vehicles').upsert(payload);
+                    if (error) throw error;
+                    console.log('[useVehicles] Vehicle updated in Supabase:', vehicle.id);
                 } catch (err) {
-                    console.error('[useVehicles] Firestore update failed:', err);
+                    console.error('[useVehicles] Supabase update failed:', err);
                     throw err;
                 }
             } else {
@@ -146,14 +140,14 @@ export const useDeleteVehicle = () => {
             // 1. Delete from Dexie immediately
             await db.trucks.delete(id);
 
-            // 2. Delete from Firestore if online
-            if (navigator.onLine && isFirebaseConfigured()) {
+            // 2. Delete from Supabase if online
+            if (navigator.onLine && isSupabaseConfigured()) {
                 try {
-                    const docRef = doc(firestoreDb, 'vehicles', id);
-                    await deleteDoc(docRef);
-                    console.log('[useVehicles] Vehicle deleted from Firestore:', id);
+                    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+                    if (error) throw error;
+                    console.log('[useVehicles] Vehicle deleted from Supabase:', id);
                 } catch (err) {
-                    console.error('[useVehicles] Firestore delete failed:', err);
+                    console.error('[useVehicles] Supabase delete failed:', err);
                     throw err;
                 }
             }

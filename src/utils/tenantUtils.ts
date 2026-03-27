@@ -1,16 +1,10 @@
 // ==========================================
 // Utilitaires pour la gestion des tenants
 // ==========================================
-// Migré de Supabase vers Firebase Firestore
+// Migré de Firebase vers Supabase
 // ==========================================
 
-import {
-    db as firestoreDb,
-    collection,
-    getDocs,
-    addDoc,
-    isFirebaseConfigured,
-} from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 
 // Helper to check if a string is a valid UUID
 export const isValidUUID = (str: string): boolean => {
@@ -21,7 +15,6 @@ export const isValidUUID = (str: string): boolean => {
 
 /**
  * Obtient un tenant_id UUID valide à partir du tenant_id de l'utilisateur.
- * Avec Firebase, le tenant_id peut être l'UID Firebase directement ou un ID personnalisé.
  */
 export const getValidTenantUUID = async (userTenantId: string | undefined): Promise<string | null> => {
     // 1. If userTenantId is already a valid UUID, return it
@@ -41,34 +34,34 @@ export const getValidTenantUUID = async (userTenantId: string | undefined): Prom
         return '00000000-0000-0000-0000-000000000000';
     }
 
-    // 4. If Firebase is not configured, return fallback
-    if (!isFirebaseConfigured()) {
-        return null;
-    }
-
-    // 5. Try to fetch first tenant from Firestore
+    // 4. Try to fetch first tenant from Supabase
     try {
-        const snap = await getDocs(collection(firestoreDb, 'tenants'));
-        if (!snap.empty) {
-            const firstTenant = snap.docs[0];
-            const tenantId = firstTenant.id;
+        const { data: tenants, error } = await supabase.from('tenants').select('id').limit(1);
+
+        if (!error && tenants && tenants.length > 0) {
+            const tenantId = tenants[0].id;
             cacheTenantUUID(tenantId);
             return tenantId;
         }
 
         // Create a default tenant if none exists
         const tenantName = userTenantId ? `Tenant ${userTenantId}` : 'Default Tenant';
-        const newTenantRef = await addDoc(collection(firestoreDb, 'tenants'), {
-            name: tenantName,
-            created_at: new Date().toISOString(),
-        });
-        cacheTenantUUID(newTenantRef.id);
-        return newTenantRef.id;
+        const { data: newTenant, error: insertError } = await supabase
+            .from('tenants')
+            .insert({ name: tenantName, created_at: new Date().toISOString() })
+            .select()
+            .single();
+
+        if (!insertError && newTenant) {
+            cacheTenantUUID(newTenant.id);
+            return newTenant.id;
+        }
 
     } catch (err) {
         console.error('Unexpected error in getValidTenantUUID:', err);
-        return null;
     }
+    
+    return null;
 };
 
 /**

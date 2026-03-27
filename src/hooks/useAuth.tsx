@@ -1,22 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, UserRole } from '../../types';
-import {
-    auth,
-    db as firestoreDb,
-    isFirebaseConfigured,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    sendPasswordResetEmail,
-    updatePassword,
-    updateEmail,
-    collection,
-    getDocs,
-    doc,
-    updateDoc,
-    query,
-    where,
-} from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import * as bcrypt from 'bcryptjs';
 
 // Define the Auth Context Shape
@@ -87,22 +71,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
-        // 3. If Firebase is not configured, stop loading
-        if (!isFirebaseConfigured()) {
-            console.log('[Auth] Firebase not configured, stopping loading');
+        // 3. If Supabase is not configured, stop loading
+        if (!isSupabaseConfigured()) {
+            console.log('[Auth] Supabase not configured, stopping loading');
             setIsLoading(false);
             return;
         }
 
-        // 4. Listen to Firebase Auth state changes
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                console.log('[Auth] Firebase user found:', firebaseUser.email);
+        // 4. Listen to Supabase Auth state changes
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
                 const user: User = {
-                    id: firebaseUser.uid,
+                    id: session.user.id,
                     tenant_id: 'T001',
-                    email: firebaseUser.email || '',
-                    full_name: firebaseUser.displayName || firebaseUser.email || 'Utilisateur',
+                    email: session.user.email || '',
+                    full_name: session.user.user_metadata?.full_name || session.user.email || 'Utilisateur',
+                    role: 'ADMIN',
+                    last_login: new Date().toISOString(),
+                    status: 'Active'
+                };
+                setCurrentUser(user);
+                setIsAuthenticated(true);
+            }
+            setIsLoading(false);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                console.log('[Auth] Supabase user found:', session.user.email);
+                const user: User = {
+                    id: session.user.id,
+                    tenant_id: 'T001',
+                    email: session.user.email || '',
+                    full_name: session.user.user_metadata?.full_name || session.user.email || 'Utilisateur',
                     role: 'ADMIN',
                     last_login: new Date().toISOString(),
                     status: 'Active'
@@ -118,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => subscription.unsubscribe();
     }, []);
 
     const login = async (u: string, p: string) => {
@@ -148,96 +149,108 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // ------------------
 
-        if (!isFirebaseConfigured()) {
-            setError('Firebase non configuré. Utilisez admin/admin pour le mode développement.');
+        if (!isSupabaseConfigured()) {
+            setError('Supabase non configuré. Utilisez admin/admin pour le mode développement.');
             setIsLoading(false);
             return;
         }
 
-        // 1. Try Firebase Auth (email/password)
+        // 1. Try Supabase Auth (email/password)
         try {
-            // If the user typed a username without @, append our default domain for drivers
             const loginEmail = u.includes('@') ? u : `${u.toLowerCase()}@compta1.com`;
-            console.log('[Auth] Trying Firebase authentication for:', loginEmail);
+            console.log('[Auth] Trying Supabase authentication for:', loginEmail);
             
-            const userCredential = await signInWithEmailAndPassword(auth, loginEmail, p);
-            const firebaseUser = userCredential.user;
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
+                email: loginEmail,
+                password: p
+            });
 
-            const user: User = {
-                id: firebaseUser.uid,
-                tenant_id: 'T001',
-                email: firebaseUser.email || '',
-                full_name: firebaseUser.displayName || u, // Fallback to provided name
-                role: 'ADMIN', // Standard fallback, we'll refine if it's a driver next
-                last_login: new Date().toISOString(),
-                status: 'Active'
-            };
-            
-            // Si c'est un compte chauffeur (email finit par @compta1.com et ce n'est pas l'admin)
-            if (loginEmail.endsWith('@compta1.com') && loginEmail !== 'admin@compta1.com') {
-                user.role = 'CHAUFFEUR';
-                
-                // Fetch the actual driver details from Firestore to get full_name
-                try {
-                    const employeesRef = collection(firestoreDb, 'employees');
-                    const q = query(employeesRef, where('username', '==', u.toLowerCase()));
-                    const snap = await getDocs(q);
-                    if (!snap.empty) {
-                        const driverData = snap.docs[0].data();
-                        user.full_name = driverData.full_name || u;
-                        user.id = snap.docs[0].id;
-                        
-                        localStorage.setItem('driver_session', JSON.stringify({
-                            id: user.id,
-                            tenant_id: user.tenant_id,
-                            email: user.email,
-                            full_name: user.full_name,
-                            username: u.toLowerCase()
-                        }));
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch extra driver details, continuing with defaults", e);
-                }
+            if (authError) {
+                // If it is invalid credentials, throw it so we fall back to driver auth
+                throw authError;
             }
 
-            setCurrentUser(user);
-            setIsAuthenticated(true);
-            setIsLoading(false);
-            console.log('[Auth] Firebase authentication successful');
-            return;
-        } catch (firebaseError: any) {
-            // If it's not a "user not found" error, throw it
-            const isNotFound = firebaseError.code === 'auth/user-not-found' || 
-                               firebaseError.code === 'auth/invalid-credential' ||
-                               firebaseError.code === 'auth/invalid-email';
-            if (!isNotFound) {
+            if (data.user) {
+                const supabaseUser = data.user;
+                const user: User = {
+                    id: supabaseUser.id,
+                    tenant_id: 'T001',
+                    email: supabaseUser.email || '',
+                    full_name: supabaseUser.user_metadata?.full_name || u, // Fallback to provided name
+                    role: 'ADMIN', // Standard fallback, we'll refine if it's a driver next
+                    last_login: new Date().toISOString(),
+                    status: 'Active'
+                };
+                
+                // Si c'est un compte chauffeur (email finit par @compta1.com et ce n'est pas l'admin)
+                if (loginEmail.endsWith('@compta1.com') && loginEmail !== 'admin@compta1.com') {
+                    user.role = 'CHAUFFEUR';
+                    
+                    try {
+                        const { data: driverData, error: dbError } = await supabase
+                            .from('employees')
+                            .select('*')
+                            .eq('username', u.toLowerCase())
+                            .single();
+                            
+                        if (!dbError && driverData) {
+                            user.full_name = driverData.full_name || u;
+                            user.id = driverData.id;
+                            
+                            localStorage.setItem('driver_session', JSON.stringify({
+                                id: user.id,
+                                tenant_id: user.tenant_id,
+                                email: user.email,
+                                full_name: user.full_name,
+                                username: u.toLowerCase()
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn("Could not fetch extra driver details, continuing with defaults", e);
+                    }
+                }
+
+                setCurrentUser(user);
+                setIsAuthenticated(true);
+                setIsLoading(false);
+                console.log('[Auth] Supabase authentication successful');
+                return;
+            }
+        } catch (supabaseError: any) {
+            const isInvalidCredentials = supabaseError.message?.includes('Invalid login credentials') || supabaseError.status === 400;
+            if (!isInvalidCredentials) {
                 setError('Mot de passe incorrect. Vérifiez vos identifiants.');
                 setIsLoading(false);
                 return;
             }
-            console.warn('[Auth] Firebase auth failed, trying legacy driver authentication');
+            console.warn('[Auth] Supabase auth failed, trying legacy driver authentication');
         }
 
-        // 2. Try Driver Custom Auth (Firestore employees collection)
+        // 2. Try Driver Custom Auth (Supabase employees table)
         try {
             console.log('[Auth] Trying driver authentication for:', u);
             const normalizedUsername = u.toLowerCase().trim();
-            const employeesRef = collection(firestoreDb, 'employees');
-            const q = query(
-                employeesRef,
-                where('username', '==', normalizedUsername)
-            );
-            const snap = await getDocs(q);
             
-            // Also try by email if not found by username
             let driver: any = null;
-            if (!snap.empty) {
-                driver = { id: snap.docs[0].id, ...snap.docs[0].data() };
+            
+            // Try by username
+            const { data: byUsername } = await supabase
+                .from('employees')
+                .select('*')
+                .eq('username', normalizedUsername)
+                .single();
+                
+            if (byUsername) {
+                driver = byUsername;
             } else {
-                const emailQ = query(employeesRef, where('email', '==', normalizedUsername));
-                const emailSnap = await getDocs(emailQ);
-                if (!emailSnap.empty) {
-                    driver = { id: emailSnap.docs[0].id, ...emailSnap.docs[0].data() };
+                // Try by email
+                const { data: byEmail } = await supabase
+                    .from('employees')
+                    .select('*')
+                    .eq('email', normalizedUsername)
+                    .single();
+                if (byEmail) {
+                    driver = byEmail;
                 }
             }
 
@@ -271,7 +284,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const salt = bcrypt.genSaltSync(10);
                     const hash = bcrypt.hashSync(p, salt);
-                    updateDoc(doc(firestoreDb, 'employees', driver.id), { password: hash });
+                    await supabase
+                        .from('employees')
+                        .update({ password: hash })
+                        .eq('id', driver.id);
                     console.log('[Auth] Password upgraded to bcrypt hash');
                 } catch (e) {
                     console.warn("Self-healing password update failed", e);
@@ -314,14 +330,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         try {
-            const firebaseUser = auth.currentUser;
-
-            if (firebaseUser && isFirebaseConfigured()) {
-                if (updates.password) {
-                    await updatePassword(firebaseUser, updates.password);
-                }
-                if (updates.email) {
-                    await updateEmail(firebaseUser, updates.email);
+            if (isSupabaseConfigured()) {
+                const { data } = await supabase.auth.getSession();
+                if (data.session) {
+                    const updateData: any = {};
+                    if (updates.password) updateData.password = updates.password;
+                    if (updates.email) updateData.email = updates.email;
+                    if (updates.fullName) {
+                        updateData.data = { full_name: updates.fullName };
+                    }
+                    
+                    if (Object.keys(updateData).length > 0) {
+                        await supabase.auth.updateUser(updateData);
+                    }
                 }
             }
 
@@ -358,11 +379,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = async () => {
         try {
-            if (isFirebaseConfigured()) {
-                await signOut(auth);
+            if (isSupabaseConfigured()) {
+                await supabase.auth.signOut();
             }
         } catch (err) {
-            console.warn("Firebase logout failed:", err);
+            console.warn("Supabase logout failed:", err);
         }
         localStorage.removeItem('driver_session');
         localStorage.removeItem('admin_session');
@@ -371,12 +392,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const resetPassword = async (email: string) => {
-        if (!isFirebaseConfigured()) {
-            throw new Error('Firebase n\'est pas configuré');
+        if (!isSupabaseConfigured()) {
+            throw new Error('Supabase n\'est pas configuré');
         }
 
         try {
-            await sendPasswordResetEmail(auth, email);
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
         } catch (err: any) {
             console.error('[Auth] Password reset error:', err);
             throw new Error(err.message || 'Erreur lors de l\'envoi de l\'email de récupération');
